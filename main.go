@@ -31,6 +31,13 @@ func main() {
 		log.Fatal("No image or no server address provided")
 	}
 
+	// check connectivity by opening one test connection
+	conn, err := net.Dial("tcp", *address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn.Close()
+
 	// Start cpu profiling if wanted
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -58,16 +65,15 @@ func bomb(messages []byte) {
 	conn, err := net.Dial("tcp", *address)
 
 	if err != nil {
-		log.Print("error establishing tcp connection: " + err.Error())
+		log.Fatal(err)
 	}
-	//TODO: Actually close the connection and not just terminate main thread
 	defer conn.Close()
 
 	// Start bombardement
 	for {
 		_, err := conn.Write(messages)
 		if err != nil {
-			log.Println(err.Error())
+			log.Fatal(err)
 		}
 	}
 }
