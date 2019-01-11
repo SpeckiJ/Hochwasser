@@ -22,7 +22,7 @@ var cpuprofile = flag.String("cpuprofile", "", "Destination file for CPU Profile
 var image_path = flag.String("image", "", "Absolute Path to image")
 var image_offsetx = flag.Int("xoffset", 0, "Offset of posted image from left border")
 var image_offsety = flag.Int("yoffset", 0, "Offset of posted image from top border")
-var connections = flag.Int("connections", 10, "Number of simultaneous connections/threads. Each Thread posts a subimage")
+var connections = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
 var address = flag.String("host", "127.0.0.1:1337", "Server address")
 var runtime = flag.String("runtime", "1", "Runtime in Minutes")
 var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
@@ -69,7 +69,7 @@ func main() {
 	time.Sleep(time.Minute * timer)
 }
 
-func bomb(messages [][]byte) {
+func bomb(messages []byte) {
 	conn, err := net.Dial("tcp", *address)
 	if err != nil {
 		log.Fatal(err)
@@ -79,11 +79,9 @@ func bomb(messages [][]byte) {
 
 	// Start bombardement
 	for {
-		for _, message := range messages {
-			_, err := conn.Write(message)
-			if err != nil {
-				log.Fatal(err)
-			}
+		_, err := conn.Write(messages)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 }
@@ -129,18 +127,15 @@ func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
 }
 
 // Splits messages into equally sized chunks
-func chunkCommands(commands [][]byte, numChunks int) [][][]byte {
-	chunks := make([][][]byte, numChunks)
+func chunkCommands(commands [][]byte, numChunks int) [][]byte {
+	chunks := make([][]byte, numChunks)
 
 	chunkLength := len(commands) / numChunks
 	for i := 0; i < numChunks; i++ {
 		cmdOffset := i * chunkLength
-
-		if cmdOffset+chunkLength > len(commands) {
-			chunks[i] = commands[cmdOffset:]
-			break
+		for j := 0; j < chunkLength; j++ {
+			chunks[i] = append(chunks[i], commands[cmdOffset+j]...)
 		}
-		chunks[i] = commands[cmdOffset : cmdOffset+chunkLength]
 	}
 	return chunks
 }
