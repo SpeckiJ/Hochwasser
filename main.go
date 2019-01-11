@@ -8,6 +8,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"log"
+	"math/rand"
 	"net"
 	_ "net/http/pprof"
 	"os"
@@ -24,6 +25,7 @@ var image_offsety = flag.Int("yoffset", 0, "Offset of posted image from top bord
 var connections = flag.Int("connections", 10, "Number of simultaneous connections/threads. Each Thread posts a subimage")
 var address = flag.String("host", "127.0.0.1:1337", "Server address")
 var runtime = flag.String("runtime", "1", "Runtime in Minutes")
+var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
 
 func main() {
 	flag.Parse()
@@ -50,6 +52,10 @@ func main() {
 
 	// Generate and split messages into equal chunks
 	commands := genCommands(readImage(*image_path), *image_offsetx, *image_offsety)
+	if *shuffle {
+		shuffleCommands(commands)
+	}
+
 	commandGroups := chunkCommands(commands, *connections)
 	for _, messages := range commandGroups {
 		go bomb(messages)
@@ -137,4 +143,11 @@ func chunkCommands(commands [][]byte, numChunks int) [][][]byte {
 		chunks[i] = commands[cmdOffset : cmdOffset+chunkLength]
 	}
 	return chunks
+}
+
+func shuffleCommands(slice [][]byte) {
+	for i := range slice {
+		j := rand.Intn(i + 1)
+		slice[i], slice[j] = slice[j], slice[i]
+	}
 }
