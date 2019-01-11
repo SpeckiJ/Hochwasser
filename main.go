@@ -2,17 +2,19 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"log"
 	"net"
+	_ "net/http/pprof"
+	"os"
 	"runtime/pprof"
+	"strconv"
 	"time"
 )
-
-import "fmt"
-import "image/png"
-import "log"
-import "os"
-import "strconv"
-import _ "net/http/pprof"
 
 var err error
 var cpuprofile = flag.String("cpuprofile", "", "Destination file for CPU Profile")
