@@ -1,4 +1,6 @@
-# 🌊🌊🌊 Hochwasser 🌊🤽🌊
+<h1 align="center" >🌊🌊🌊 Hochwasser 🌊🤽🌊</h1>
+<p align="center"><img src="benchmarks/hochwasser_shuffle_vs_ordered.gif"/></p>
+
 Highly efficient client for [Pixelflut]:
 Faster than [sturmflut]!
 
