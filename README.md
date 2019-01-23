@@ -2,7 +2,7 @@
 <p align="center"><img src="benchmarks/hochwasser_shuffle_vs_ordered.gif"/></p>
 
 Highly efficient client for [Pixelflut]:
-Faster than [sturmflut]!
+Faster than [sturmflut]! (In some benchmarks at least)
 
 Can currently only send a single picture though.
 
@@ -37,3 +37,6 @@ go run main.go -image benchmark/test.png -connection 10
 [d4c574b]: https://github.com/SpeckiJ/Hochwasser/commit/d4c574be103a7bad69349f29402694f51058184c
 [pixelflut_gh]: https://github.com/defnull/pixelflut
 [iperf]: https://iperf.fr/
+
+## future ideas
+For future ideas check [IDEAS](https://github.com/SpeckiJ/Hochwasser/blob/master/IDEAS.md)
