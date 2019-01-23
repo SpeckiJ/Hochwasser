@@ -2,34 +2,43 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"log"
+	"math/rand"
 	"net"
+	_ "net/http/pprof"
+	"os"
 	"runtime/pprof"
+	"strconv"
 	"time"
 )
 
-import "fmt"
-import "image/png"
-import "log"
-import "os"
-import "strconv"
-import _ "net/http/pprof"
-
 var err error
 var cpuprofile = flag.String("cpuprofile", "", "Destination file for CPU Profile")
-var image = flag.String("image", "", "Absolute Path to image")
-var canvas_xsize = flag.Int("xsize", 800, "Width of the canvas in px")
-var canvas_ysize = flag.Int("ysize", 600, "Height of the canvas in px")
+var image_path = flag.String("image", "", "Absolute Path to image")
 var image_offsetx = flag.Int("xoffset", 0, "Offset of posted image from left border")
 var image_offsety = flag.Int("yoffset", 0, "Offset of posted image from top border")
-var connections = flag.Int("connections", 10, "Number of simultaneous connections/threads. Each Thread posts a subimage")
+var connections = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
 var address = flag.String("host", "127.0.0.1:1337", "Server address")
 var runtime = flag.String("runtime", "1", "Runtime in Minutes")
+var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
 
 func main() {
 	flag.Parse()
-	if *image == "" || *address == "" {
-		log.Fatal("No image or no server address provided")
+	if *image_path == "" {
+		log.Fatal("No image provided")
 	}
+
+	// check connectivity by opening one test connection
+	conn, err := net.Dial("tcp", *address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn.Close()
 
 	// Start cpu profiling if wanted
 	if *cpuprofile != "" {
@@ -40,10 +49,16 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+
 	// Generate and split messages into equal chunks
-	msg := splitmessages(genMessages())
-	for _, message := range msg {
-		go bomb(message)
+	commands := genCommands(readImage(*image_path), *image_offsetx, *image_offsety)
+	if *shuffle {
+		shuffleCommands(commands)
+	}
+
+	commandGroups := chunkCommands(commands, *connections)
+	for _, messages := range commandGroups {
+		go bomb(messages)
 	}
 
 	// Terminate after 1 Minute to save resources
@@ -56,86 +71,78 @@ func main() {
 
 func bomb(messages []byte) {
 	conn, err := net.Dial("tcp", *address)
-
 	if err != nil {
-		log.Print("error establishing tcp connection: " + err.Error())
+		log.Fatal(err)
 	}
-	//TODO: Actually close the connection and not just terminate main thread
+
 	defer conn.Close()
 
 	// Start bombardement
 	for {
 		_, err := conn.Write(messages)
 		if err != nil {
-			log.Println(err.Error())
+			log.Fatal(err)
 		}
 	}
 }
 
-// Creates message based on given image
-func genMessages() (output []byte) {
-	reader, err := os.Open(*image)
+func readImage(path string) (img image.Image) {
+	reader, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	img, err2 := png.Decode(reader)
+	img, _, err2 := image.Decode(reader)
 	if err2 != nil {
 		log.Fatal(err2)
 	}
 
-	for x := img.Bounds().Max.X; x != 0; x-- {
-		for y := img.Bounds().Max.Y; y != 0; y-- {
-			col := img.At(x, y)
-			r, g, b, _ := col.RGBA()
-
-			rStr := strconv.FormatInt(int64(r), 16)
-			if len(rStr) == 1 {
-				rStr = "0" + rStr
-			}
-
-			gStr := strconv.FormatInt(int64(g), 16)
-			if len(gStr) == 1 {
-				gStr = "0" + gStr
-			}
-
-			bStr := strconv.FormatInt(int64(b), 16)
-			if len(bStr) == 1 {
-				bStr = "0" + bStr
-			}
-
-			colStr := rStr[0:2]
-			colStr += gStr[0:2]
-			colStr += bStr[0:2]
-
-			//Do not draw transparent pixels
-			if colStr == "000000" {
-				continue
-			}
-			pxStr := fmt.Sprintf("PX %d %d %s\n", x+*image_offsetx, y+*image_offsety, colStr)
-			output = append(output, []byte(pxStr)...)
-		}
-	}
-	return output
+	return img
 }
 
-// Splits messages into chunks, splitting on complete commands only
-func splitmessages(in []byte) [][]byte {
-	index := 0
-	equalsplit := len(in) / *connections
-	output := make([][]byte, *connections)
-	for i := 0; i < *connections; i++ {
-		if index+equalsplit > len(in) {
-			output[i] = in[index:]
-			break
-		}
-
-		tmp := index
-		for in[index+equalsplit] != 80 {
-			index++
-		}
-		output[i] = in[tmp : index+equalsplit]
-		index += equalsplit
+func intToHex(x uint32) string {
+	str := strconv.FormatInt(int64(x), 16)
+	if len(str) == 1 {
+		str = "0" + str
 	}
-	return output
+	return str[0:2]
+}
+
+// Creates message based on given image
+func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
+	max_x := img.Bounds().Max.X
+	max_y := img.Bounds().Max.Y
+	commands = make([][]byte, max_x*max_y)
+
+	for x := 0; x < max_x; x++ {
+		for y := 0; y < max_y; y++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			colStr := intToHex(r) + intToHex(g) + intToHex(b)
+			cmd := fmt.Sprintf("PX %d %d %s\n", x+offset_x, y+offset_y, colStr)
+			commands[x*max_y+y] = []byte(cmd)
+		}
+	}
+
+	return commands
+}
+
+// Splits messages into equally sized chunks
+func chunkCommands(commands [][]byte, numChunks int) [][]byte {
+	chunks := make([][]byte, numChunks)
+
+	chunkLength := len(commands) / numChunks
+	for i := 0; i < numChunks; i++ {
+		cmdOffset := i * chunkLength
+		for j := 0; j < chunkLength; j++ {
+			chunks[i] = append(chunks[i], commands[cmdOffset+j]...)
+		}
+	}
+	return chunks
+}
+
+func shuffleCommands(slice [][]byte) {
+	for i := range slice {
+		j := rand.Intn(i + 1)
+		slice[i], slice[j] = slice[j], slice[i]
+	}
 }
