@@ -3,6 +3,7 @@
 - support animations / frame concept
 - visualization client
 - CnC: server distributes jobs to connected clients
+  - or fully P2P using [2D CAN / Z-ordercurve adressing](https://github.com/noerw/geo-dht) (p2p implementation needed)
 - webassembly port?
 - use userland tcp stack (e.g. https://github.com/google/netstack or even https://github.com/luigirizzo/netmap)
 
