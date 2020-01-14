@@ -4,6 +4,7 @@
 - visualization client
 - CnC: server distributes jobs to connected clients
 - webassembly port?
+- use userland tcp stack (e.g. https://github.com/google/netstack or even https://github.com/luigirizzo/netmap)
 
 # performance considerations
 - server limitations: rendering is bottleneck. maybe artificial limitations (commands per draw, connections per IP, queue)
