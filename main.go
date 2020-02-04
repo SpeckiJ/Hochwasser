@@ -110,9 +110,9 @@ func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
 	for x := 0; x < max_x; x++ {
 		for y := 0; y < max_y; y++ {
 			// ensure we're working with RGBA colors (non-alpha-pre-multiplied)
-                        c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
 
-                        // ignore transparent pixels
+			// ignore transparent pixels
 			if c.A != 0 {
 				cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
 					x+offset_x, y+offset_y, c.R, c.G, c.B)
