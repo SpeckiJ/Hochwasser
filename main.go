@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -13,7 +14,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
-	"strconv"
 	"time"
 )
 
@@ -100,30 +100,29 @@ func readImage(path string) (img image.Image) {
 	return img
 }
 
-func intToHex(x uint32) string {
-	str := strconv.FormatInt(int64(x), 16)
-	if len(str) == 1 {
-		str = "0" + str
-	}
-	return str[0:2]
-}
-
 // Creates message based on given image
 func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
 	max_x := img.Bounds().Max.X
 	max_y := img.Bounds().Max.Y
 	commands = make([][]byte, max_x*max_y)
+	numCmds := 0
 
 	for x := 0; x < max_x; x++ {
 		for y := 0; y < max_y; y++ {
-			r, g, b, _ := img.At(x, y).RGBA()
-			colStr := intToHex(r) + intToHex(g) + intToHex(b)
-			cmd := fmt.Sprintf("PX %d %d %s\n", x+offset_x, y+offset_y, colStr)
-			commands[x*max_y+y] = []byte(cmd)
+			// ensure we're working with RGBA colors (non-alpha-pre-multiplied)
+                        c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+
+                        // ignore transparent pixels
+			if c.A != 0 {
+				cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
+					x+offset_x, y+offset_y, c.R, c.G, c.B)
+				commands[numCmds] = []byte(cmd)
+				numCmds += 1
+			}
 		}
 	}
 
-	return commands
+	return commands[:numCmds]
 }
 
 // Splits messages into equally sized chunks
