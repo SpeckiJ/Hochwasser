@@ -11,7 +11,6 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
 	"time"
@@ -24,7 +23,7 @@ var image_offsetx = flag.Int("xoffset", 0, "Offset of posted image from left bor
 var image_offsety = flag.Int("yoffset", 0, "Offset of posted image from top border")
 var connections = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
 var address = flag.String("host", "127.0.0.1:1337", "Server address")
-var runtime = flag.String("runtime", "1", "Runtime in Minutes")
+var runtime = flag.String("runtime", "60s", "exit after timeout")
 var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
 
 func main() {
@@ -46,6 +45,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer f.Close()
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
@@ -61,12 +61,12 @@ func main() {
 		go bomb(messages)
 	}
 
-	// Terminate after 1 Minute to save resources
-	timer, err := time.ParseDuration(*runtime + "m")
+	// Terminate after timeout to save resources
+	timer, err := time.ParseDuration(*runtime)
 	if err != nil {
 		log.Fatal("Invalid runtime specified: " + err.Error())
 	}
-	time.Sleep(time.Minute * timer)
+	time.Sleep(timer)
 }
 
 func bomb(messages []byte) {
@@ -113,12 +113,13 @@ func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
 			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
 
 			// ignore transparent pixels
-			if c.A != 0 {
-				cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-					x+offset_x, y+offset_y, c.R, c.G, c.B)
-				commands[numCmds] = []byte(cmd)
-				numCmds += 1
+			if c.A == 0 {
+				continue
 			}
+			cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
+				x+offset_x, y+offset_y, c.R, c.G, c.B)
+			commands[numCmds] = []byte(cmd)
+			numCmds += 1
 		}
 	}
 
