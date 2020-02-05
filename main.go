@@ -50,8 +50,10 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	offset := image.Pt(*image_offsetx, *image_offsety)
+	img := readImage(*image_path)
 	// Generate and split messages into equal chunks
-	commands := genCommands(readImage(*image_path), *image_offsetx, *image_offsety)
+	commands := genCommands(img, offset)
 	if *shuffle {
 		shuffleCommands(commands)
 	}
@@ -101,14 +103,13 @@ func readImage(path string) (img image.Image) {
 }
 
 // Creates message based on given image
-func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
-	max_x := img.Bounds().Max.X
-	max_y := img.Bounds().Max.Y
-	commands = make([][]byte, max_x*max_y)
+func genCommands(img image.Image, offset image.Point) (commands [][]byte) {
+	b := img.Bounds()
+	commands = make([][]byte, b.Size().X*b.Size().Y)
 	numCmds := 0
 
-	for x := 0; x < max_x; x++ {
-		for y := 0; y < max_y; y++ {
+	for x := b.Min.X; x < b.Max.X; x++ {
+		for y := b.Min.Y; y < b.Max.Y; y++ {
 			// ensure we're working with RGBA colors (non-alpha-pre-multiplied)
 			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
 
@@ -116,10 +117,12 @@ func genCommands(img image.Image, offset_x, offset_y int) (commands [][]byte) {
 			if c.A == 0 {
 				continue
 			}
+			// @incomplete: also send alpha? -> bandwidth tradeoff
+			// @speed: this sprintf call is quite slow..
 			cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-				x+offset_x, y+offset_y, c.R, c.G, c.B)
+				x + offset.X, y + offset.Y, c.R, c.G, c.B)
 			commands[numCmds] = []byte(cmd)
-			numCmds += 1
+			numCmds++
 		}
 	}
 
