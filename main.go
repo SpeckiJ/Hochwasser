@@ -1,23 +1,15 @@
 package main
 
 import (
-	"bufio"
-	"encoding/hex"
 	"flag"
-	"fmt"
 	"image"
-	"image/color"
-	_ "image/gif"
-	_ "image/jpeg"
-	"image/png"
 	"log"
-	"math/rand"
 	"net"
-	"net/textproto"
 	"os"
 	"runtime/pprof"
-	"strings"
 	"time"
+
+	"github.com/SpeckiJ/Hochwasser/pixelflut"
 )
 
 var err error
@@ -67,23 +59,23 @@ func main() {
 		b2 := b1.Add(image.Pt(b1.Dx(), 0))
 		b3 := b1.Add(image.Pt(0, b1.Dy()))
 		b4 := b1.Add(b1.Size())
-		go fetchImage(fetchedImg.SubImage(b1).(*image.NRGBA))
-		go fetchImage(fetchedImg.SubImage(b2).(*image.NRGBA))
-		go fetchImage(fetchedImg.SubImage(b3).(*image.NRGBA))
-		go fetchImage(fetchedImg.SubImage(b4).(*image.NRGBA))
+		go pixelflut.FetchImage(fetchedImg.SubImage(b1).(*image.NRGBA), *address)
+		go pixelflut.FetchImage(fetchedImg.SubImage(b2).(*image.NRGBA), *address)
+		go pixelflut.FetchImage(fetchedImg.SubImage(b3).(*image.NRGBA), *address)
+		go pixelflut.FetchImage(fetchedImg.SubImage(b4).(*image.NRGBA), *address)
 		*connections -= 4
 	}
 
 	// Generate and split messages into equal chunks
-	commands := genCommands(img, offset)
+	commands := pixelflut.CommandsFromImage(img, offset)
 	if *shuffle {
-		shuffleCommands(commands)
+		commands.Shuffle()
 	}
 
 	if *connections > 0 {
-		commandGroups := chunkCommands(commands, *connections)
+		commandGroups := commands.Chunk(*connections)
 		for _, messages := range commandGroups {
-			go bomb(messages)
+			go pixelflut.Bomb(messages, *address)
 		}
 	}
 
@@ -96,139 +88,5 @@ func main() {
 
 	if *fetchImgPath != "" {
 		writeImage(*fetchImgPath, fetchedImg)
-	}
-}
-
-func bomb(messages []byte) {
-	conn, err := net.Dial("tcp", *address)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer conn.Close()
-
-	// Start bombardement
-	for {
-		_, err := conn.Write(messages)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-}
-
-func readImage(path string) (img image.Image) {
-	reader, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	img, _, err2 := image.Decode(reader)
-	if err2 != nil {
-		log.Fatal(err2)
-	}
-
-	return img
-}
-
-func writeImage(path string, img image.Image) {
-	f, err := os.Create(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := png.Encode(f, img); err != nil {
-		f.Close()
-		log.Fatal(err)
-	}
-}
-
-// Creates message based on given image
-func genCommands(img image.Image, offset image.Point) (commands [][]byte) {
-	b := img.Bounds()
-	commands = make([][]byte, b.Size().X*b.Size().Y)
-	numCmds := 0
-
-	for x := b.Min.X; x < b.Max.X; x++ {
-		for y := b.Min.Y; y < b.Max.Y; y++ {
-			// ensure we're working with RGBA colors (non-alpha-pre-multiplied)
-			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
-
-			// ignore transparent pixels
-			if c.A == 0 {
-				continue
-			}
-			// @incomplete: also send alpha? -> bandwidth tradeoff
-			// @speed: this sprintf call is quite slow..
-			cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-				x + offset.X, y + offset.Y, c.R, c.G, c.B)
-			commands[numCmds] = []byte(cmd)
-			numCmds++
-		}
-	}
-
-	return commands[:numCmds]
-}
-
-// Splits messages into equally sized chunks
-func chunkCommands(commands [][]byte, numChunks int) [][]byte {
-	chunks := make([][]byte, numChunks)
-
-	chunkLength := len(commands) / numChunks
-	for i := 0; i < numChunks; i++ {
-		cmdOffset := i * chunkLength
-		for j := 0; j < chunkLength; j++ {
-			chunks[i] = append(chunks[i], commands[cmdOffset+j]...)
-		}
-	}
-	return chunks
-}
-
-func shuffleCommands(slice [][]byte) {
-	for i := range slice {
-		j := rand.Intn(i + 1)
-		slice[i], slice[j] = slice[j], slice[i]
-	}
-}
-
-func fetchImage(img *image.NRGBA) {
-	// FIXME @speed: this is unusably s l o w w w
-	// bottleneck seems to be our pixel reading/parsing code. cpuprofile!
-	// -> should buffer it just as in bomb()
-
-	conn, err := net.Dial("tcp", *address)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	reader := bufio.NewReader(conn)
-	tp := textproto.NewReader(reader)
-
-	b := img.Bounds()
-	for {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			for y := b.Min.Y; y < b.Max.Y; y++ {
-				// request pixel
-				fmt.Fprintf(conn, "PX %d %d\n", x, y)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				// read pixel
-				// @speed try to run this in a separate goroutine?
-				// we probably need to buffer the responses then
-				res, err := tp.ReadLine()
-				if err != nil {
-					log.Fatal(err)
-				}
-				res2 := strings.Split(res, " ")
-				col, _ := hex.DecodeString(res2[3])
-				img.Set(x, y, color.NRGBA{
-					uint8(col[0]),
-					uint8(col[1]),
-					uint8(col[2]),
-					255,
-				})
-			}
-		}
 	}
 }
