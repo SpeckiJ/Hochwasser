@@ -49,38 +49,15 @@ func main() {
 
 	offset := image.Pt(*image_offsetx, *image_offsety)
 	img := readImage(*image_path)
-	fetchedImg := image.NewNRGBA(img.Bounds().Add(offset))
 
+	var fetchedImg *image.NRGBA
 	if *fetchImgPath != "" {
-		fetchCmds := pixelflut.CmdsFetchImage(fetchedImg.Bounds())
-		fetchMessages := fetchCmds.Chunk(1)
-
-		{
-			// @cleanup: encapsulate this in separate function exported from pixelflut
-			conn, err := net.Dial("tcp", *address)
-			if err != nil {
-				log.Fatal(err)
-			}
-			// defer conn.Close()
-
-			go pixelflut.FetchPixels(fetchedImg, conn)
-			go pixelflut.Bomb2(fetchMessages[0], conn)
-		}
+		fetchedImg = pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
 		*connections -= 1
 	}
 
-	// Generate and split messages into equal chunks
-	commands := pixelflut.CommandsFromImage(img, offset)
-	if *shuffle {
-		commands.Shuffle()
-	}
-
-	if *connections > 0 {
-		commandGroups := commands.Chunk(*connections)
-		for _, messages := range commandGroups {
-			go pixelflut.Bomb(messages, *address)
-		}
-	}
+	// 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
+	pixelflut.Flut(img, offset, *shuffle, *address, *connections)
 
 	// Terminate after timeout to save resources
 	timer, err := time.ParseDuration(*runtime)
