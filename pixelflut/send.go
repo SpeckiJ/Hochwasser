@@ -24,7 +24,7 @@ func CommandsFromImage(img image.Image, offset image.Point) (commands Commands) 
 			// @incomplete: also send alpha? -> bandwidth tradeoff
 			// @speed: this sprintf call is quite slow..
 			cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-				x + offset.X, y + offset.Y, c.R, c.G, c.B)
+				x+offset.X, y+offset.Y, c.R, c.G, c.B)
 			commands[numCmds] = []byte(cmd)
 			numCmds++
 		}

@@ -52,18 +52,21 @@ func main() {
 	fetchedImg := image.NewNRGBA(img.Bounds().Add(offset))
 
 	if *fetchImgPath != "" {
-		// using img.SubImage to distribute tasks is nice, as we can also parallelize command generation easily!
-		// @cleanup: use a box tiling algo instead of hardcoding
-		b := fetchedImg.Bounds()
-		b1 := image.Rectangle{b.Min, b.Size().Div(2)}
-		b2 := b1.Add(image.Pt(b1.Dx(), 0))
-		b3 := b1.Add(image.Pt(0, b1.Dy()))
-		b4 := b1.Add(b1.Size())
-		go pixelflut.FetchImage(fetchedImg.SubImage(b1).(*image.NRGBA), *address)
-		go pixelflut.FetchImage(fetchedImg.SubImage(b2).(*image.NRGBA), *address)
-		go pixelflut.FetchImage(fetchedImg.SubImage(b3).(*image.NRGBA), *address)
-		go pixelflut.FetchImage(fetchedImg.SubImage(b4).(*image.NRGBA), *address)
-		*connections -= 4
+		fetchCmds := pixelflut.CmdsFetchImage(fetchedImg.Bounds())
+		fetchMessages := fetchCmds.Chunk(1)
+
+		{
+			// @cleanup: encapsulate this in separate function exported from pixelflut
+			conn, err := net.Dial("tcp", *address)
+			if err != nil {
+				log.Fatal(err)
+			}
+			// defer conn.Close()
+
+			go pixelflut.FetchPixels(fetchedImg, conn)
+			go pixelflut.Bomb2(fetchMessages[0], conn)
+		}
+		*connections -= 1
 	}
 
 	// Generate and split messages into equal chunks
