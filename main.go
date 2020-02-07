@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
+	"github.com/SpeckiJ/Hochwasser/rpc"
 )
 
 var err error
@@ -22,6 +23,8 @@ var address = flag.String("host", "127.0.0.1:1337", "Server address")
 var runtime = flag.String("runtime", "60s", "exit after timeout")
 var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
 var fetchImgPath = flag.String("fetch-image", "", "path to save the fetched pixel state to")
+var rán = flag.String("rán", "", "enable rpc server to distribute jobs, listening on the given address/port")
+var hevring = flag.String("hevring", "", "connect to rán rpc server at given address")
 
 func main() {
 	flag.Parse()
@@ -45,6 +48,13 @@ func main() {
 		defer f.Close()
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
+	}
+
+	if *rán != "" { // @fixme: should validate proper address?
+		rpc.StartRán(*rán)
+	}
+	if *hevring != "" { // @fixme: should validate proper address?
+		rpc.ConnectHevring(*hevring)
 	}
 
 	offset := image.Pt(*image_offsetx, *image_offsety)
