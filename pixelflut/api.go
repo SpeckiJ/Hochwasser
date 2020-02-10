@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/textproto"
 	"strconv"
-	"strings"
 )
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
@@ -59,13 +58,19 @@ func parsePixels(target *image.NRGBA, conn net.Conn) {
 			log.Fatal(err)
 		}
 
-		// @speed: Split is ridiculously slow due to mallocs!
-		//   chunk last 6 chars off -> color, remove first 3 chars, find space in
-		//   remainder, then Atoi() xy?
-		res2 := strings.Split(res, " ")
-		x, _ := strconv.Atoi(res2[1])
-		y, _ := strconv.Atoi(res2[2])
-		col, _ := hex.DecodeString(res2[3])
+		// parse response ("PX <x> <y> <col>")
+		// @incomplete errorhandling
+		colorStart := len(res) - 6
+		xy := res[3:colorStart - 1]
+		yStart := 0
+		for yStart = len(xy) - 1; yStart >= 0; yStart-- {
+			if xy[yStart] == ' ' {
+				break
+			}
+		}
+		x, _ := strconv.Atoi(xy[:yStart])
+		y, _ := strconv.Atoi(xy[yStart+1:])
+		col, _ := hex.DecodeString(res[colorStart:])
 
 		target.Set(x, y, color.NRGBA{
 			uint8(col[0]),
