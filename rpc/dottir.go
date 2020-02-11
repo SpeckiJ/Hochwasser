@@ -3,26 +3,40 @@ package rpc
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/rpc"
 )
 
+// const handshake_magick = "Sæl!"
+
 func ConnectHevring(ránAddress string) {
-	fmt.Printf("[hevring] connecting to %s\n", ránAddress)
+	rpc.Register(new(Hevring))
 
-	client, err := rpc.Dial("tcp", ránAddress)
+	fmt.Printf("[hevring] greeting Rán at %s\n", ránAddress)
+	conn, err := net.Dial("tcp", ránAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
+	go rpc.ServeConn(conn)
+	fmt.Printf("[hevring] awaiting task from Rán\n")
+}
 
-	job := RánJob{}
-	err = client.Call("Rán.Hello", RánHelloReq{}, &job)
-	if err != nil {
-		log.Fatal(err)
-	}
+type Hevring struct {}
 
-	if (job == RánJob{}) {
-		fmt.Printf("[hevring] Rán has no job for us. :(\n")
-	} else {
-		fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", job)
-	}
+type FlutAck struct{ Ok bool }
+
+func (h *Hevring) Flut(job RánJob, reply *FlutAck) error {
+	fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", job)
+	reply.Ok = true
+	return nil
+}
+
+func (h *Hevring) Status(x int, reply *FlutAck) error {
+	reply.Ok = true
+	return nil
+}
+
+func (h *Hevring) Stop(x int, reply *FlutAck) error {
+	reply.Ok = true
+	return nil
 }

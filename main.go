@@ -51,7 +51,7 @@ func main() {
 	}
 
 	if *rán != "" { // @fixme: should validate proper address?
-		rpc.StartRán(*rán)
+		rpc.SummonRán(*rán)
 	}
 	if *hevring != "" { // @fixme: should validate proper address?
 		rpc.ConnectHevring(*hevring)
@@ -60,10 +60,10 @@ func main() {
 	offset := image.Pt(*image_offsetx, *image_offsety)
 	img := readImage(*image_path)
 
-	var fetchedImg *image.NRGBA
 	if *fetchImgPath != "" {
-		fetchedImg = pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
+		fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
 		*connections -= 1
+		defer writeImage(*fetchImgPath, fetchedImg)
 	}
 
 	// 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
@@ -75,8 +75,4 @@ func main() {
 		log.Fatal("Invalid runtime specified: " + err.Error())
 	}
 	time.Sleep(timer)
-
-	if *fetchImgPath != "" {
-		writeImage(*fetchImgPath, fetchedImg)
-	}
 }
