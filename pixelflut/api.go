@@ -7,8 +7,6 @@ import (
 	"image/color"
 	"log"
 	"net"
-	"net/textproto"
-	"strconv"
 )
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
@@ -39,44 +37,44 @@ func FetchImage(bounds image.Rectangle, address string, conns int) (img *image.N
 
 		// @cleanup: parsePixels calls conn.Close(), as deferring it here would
 		//   instantly close it
-		go parsePixels(img, conn)
+		go readPixels(img, conn)
 		go bombConn(cmds[i], conn)
 	}
 
 	return img
 }
 
-func parsePixels(target *image.NRGBA, conn net.Conn) {
-	reader := bufio.NewReader(conn)
-	tp := textproto.NewReader(reader)
+func readPixels(target *image.NRGBA, conn net.Conn) {
 	defer conn.Close()
 
+	reader := bufio.NewReader(conn)
+	col := make([]byte, 3)
 	for {
-		// @speed: textproto seems not the fastest, buffer text manually & split at \n ?
-		res, err := tp.ReadLine()
+		res, err := reader.ReadSlice('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		// parse response ("PX <x> <y> <col>")
-		// @incomplete errorhandling
-		colorStart := len(res) - 6
+		// parse response ("PX <x> <y> <col>\n")
+		colorStart := len(res) - 7
 		xy := res[3:colorStart - 1]
 		yStart := 0
-		for yStart = len(xy) - 1; yStart >= 0; yStart-- {
+		for yStart = len(xy) - 2; yStart >= 0; yStart-- {
 			if xy[yStart] == ' ' {
 				break
 			}
 		}
-		x, _ := strconv.Atoi(xy[:yStart])
-		y, _ := strconv.Atoi(xy[yStart+1:])
-		col, _ := hex.DecodeString(res[colorStart:])
+		x := asciiToInt(xy[:yStart])
+		y := asciiToInt(xy[yStart + 1:])
+		hex.Decode(col, res[colorStart:len(res) - 1])
 
-		target.Set(x, y, color.NRGBA{
-			uint8(col[0]),
-			uint8(col[1]),
-			uint8(col[2]),
-			255,
-		})
+		target.SetNRGBA(x, y, color.NRGBA{ col[0], col[1], col[2], 255 })
 	}
+}
+
+func asciiToInt(buf []byte) (v int) {
+	for _, c := range buf {
+		v = v * 10 + int(c - '0')
+	}
+	return v
 }
