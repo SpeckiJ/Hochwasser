@@ -15,29 +15,19 @@ import (
 
 var err error
 var cpuprofile = flag.String("cpuprofile", "", "Destination file for CPU Profile")
-var image_path = flag.String("image", "", "Absolute Path to image")
-var image_offsetx = flag.Int("xoffset", 0, "Offset of posted image from left border")
-var image_offsety = flag.Int("yoffset", 0, "Offset of posted image from top border")
+var imgPath = flag.String("image", "", "Absolute Path to image")
+var x = flag.Int("x", 0, "Offset of posted image from left border")
+var y = flag.Int("y", 0, "Offset of posted image from top border")
 var connections = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
 var address = flag.String("host", "127.0.0.1:1337", "Server address")
 var runtime = flag.String("runtime", "60s", "exit after timeout")
 var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
 var fetchImgPath = flag.String("fetch-image", "", "path to save the fetched pixel state to")
-var rán = flag.String("rán", "", "enable rpc server to distribute jobs, listening on the given address/port")
-var hevring = flag.String("hevring", "", "connect to rán rpc server at given address")
+var ránAddr = flag.String("rán", "", "enable rpc server to distribute jobs, listening on the given address/port")
+var hevringAddr = flag.String("hevring", "", "connect to rán rpc server at given address")
 
 func main() {
 	flag.Parse()
-	if *image_path == "" {
-		log.Fatal("No image provided")
-	}
-
-	// check connectivity by opening one test connection
-	conn, err := net.Dial("tcp", *address)
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn.Close()
 
 	// Start cpu profiling if wanted
 	if *cpuprofile != "" {
@@ -50,29 +40,56 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	if *rán != "" { // @fixme: should validate proper address?
-		rpc.SummonRán(*rán)
-	}
-	if *hevring != "" { // @fixme: should validate proper address?
-		rpc.ConnectHevring(*hevring)
-	}
+	if *imgPath != "" {
+		offset := image.Pt(*x, *y)
+		img := readImage(*imgPath)
 
-	offset := image.Pt(*image_offsetx, *image_offsety)
-	img := readImage(*image_path)
+		// check connectivity by opening one test connection
+		conn, err := net.Dial("tcp", *address)
+		if err != nil {
+			log.Fatal(err)
+		}
+		conn.Close()
 
-	if *fetchImgPath != "" {
-		fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
-		*connections -= 1
-		defer writeImage(*fetchImgPath, fetchedImg)
+		if *ránAddr != "" {
+			// run RPC server, tasking clients to flut
+			r := rpc.SummonRán(*ránAddr)
+			r.SetTask(img, offset, *address, *connections) // @incomplete
+			select {}                                      // block forever
+
+		} else {
+
+			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
+			pixelflut.Flut(img, offset, *shuffle, *address, *connections)
+
+			// fetch server state and save to file
+			// @incomplete: make this available also when not fluting?
+			if *fetchImgPath != "" {
+				fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
+				*connections -= 1
+				defer writeImage(*fetchImgPath, fetchedImg)
+			}
+
+			// Terminate after timeout to save resources
+			timer, err := time.ParseDuration(*runtime)
+			if err != nil {
+				log.Fatal("Invalid runtime specified: " + err.Error())
+			}
+			time.Sleep(timer)
+		}
+
+	} else if *hevringAddr != "" {
+		// connect to RPC server and execute their tasks
+		rpc.ConnectHevring(*hevringAddr)
+		select {} // block forever
+
+	} else {
+		log.Fatal("must specify -image or -hevring")
 	}
-
-	// 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
-	pixelflut.Flut(img, offset, *shuffle, *address, *connections)
-
-	// Terminate after timeout to save resources
-	timer, err := time.ParseDuration(*runtime)
-	if err != nil {
-		log.Fatal("Invalid runtime specified: " + err.Error())
-	}
-	time.Sleep(timer)
 }
+
+/**
+ * @incomplete: clean exit
+ * to ensure cleanup is done (rpc disconnects, cpuprof, image writing, ...),
+ * we should catch signals and force-exit all goroutines (bomb, rpc). via channel?
+ */
