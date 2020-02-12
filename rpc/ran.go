@@ -1,11 +1,16 @@
 package rpc
 
 import (
+	// "io"
+	"bufio"
 	"fmt"
 	"image"
 	"log"
 	"net"
 	"net/rpc"
+	"os"
+	"os/signal"
+	"strings"
 	"time"
 )
 
@@ -65,7 +70,47 @@ func SummonRán(address string) *Rán {
 		}
 	}()
 
-	// @incomplete: REPL to change tasks without loosing clients
+	// REPL to change tasks without loosing clients
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			input := strings.Split(scanner.Text(), " ")
+			cmd := strings.ToLower(input[0])
+			args := input[1:]
+			if cmd == "stop" {
+				for _, c := range r.clients {
+					ack := FlutAck{}
+					c.Call("Hevring.Stop", 0, &ack) // @speed: async
+				}
+
+			} else if cmd == "img" && len(args) > 0 {
+				// // @incomplete
+				// path := args[0]
+				// img := readImage(path)
+				// offset := image.Pt(0, 0)
+				// if len(args) == 3 {
+				// 	x := strconv.Atoi(args[1])
+				// 	y := strconv.Atoi(args[2])
+				// 	offset = image.Pt(x, y)
+				// }
+				// task := FlutTask{}
+			}
+		}
+	}()
+
+	// kill clients on exit
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+		for {
+			<-sigChan
+			for _, c := range r.clients {
+				ack := FlutAck{}
+				c.Call("Hevring.Die", 0, &ack) // @speed: async
+			}
+			os.Exit(0) // @bug :cleanExit
+		}
+	}()
 
 	return r
 }

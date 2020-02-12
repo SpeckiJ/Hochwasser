@@ -23,7 +23,9 @@ func ConnectHevring(ránAddress string) {
 	fmt.Printf("[hevring] awaiting task from Rán\n")
 }
 
-type Hevring struct{}
+type Hevring struct {
+	task FlutTask
+}
 
 type FlutTask struct {
 	Address  string
@@ -36,9 +38,16 @@ type FlutTask struct {
 type FlutAck struct{ Ok bool }
 
 func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
-	// @incomplete: async errorhandling
-	// @incomplete: stop old task if new task is received
+	if (h.task != FlutTask{}) {
+		// @incomplete: stop old task if new task is received
+		fmt.Println("[hevring] already have a task")
+		reply.Ok = false
+		return nil
+	}
+
 	fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", task)
+	h.task = task
+	// @incomplete: async errorhandling
 	pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.Address, task.MaxConns)
 	reply.Ok = true
 	return nil
@@ -51,7 +60,12 @@ func (h *Hevring) Status(x int, reply *FlutAck) error {
 }
 
 func (h *Hevring) Stop(x int, reply *FlutAck) error {
-	reply.Ok = true
+	// @incomplete
+	if (h.task != FlutTask{}) {
+		fmt.Println("[hevring] stopping task")
+		h.task = FlutTask{}
+		reply.Ok = true
+	}
 	return nil
 }
 
