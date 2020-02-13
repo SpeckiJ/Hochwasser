@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	// "sync"
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
@@ -24,7 +25,8 @@ func ConnectHevring(ránAddress string) {
 }
 
 type Hevring struct {
-	task FlutTask
+	task     FlutTask
+	taskQuit chan bool
 }
 
 type FlutTask struct {
@@ -47,8 +49,10 @@ func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 
 	fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", task)
 	h.task = task
+	h.taskQuit = make(chan bool)
 	// @incomplete: async errorhandling
-	pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.Address, task.MaxConns)
+
+	go pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.Address, task.MaxConns, h.taskQuit, nil)
 	reply.Ok = true
 	return nil
 }
@@ -64,6 +68,8 @@ func (h *Hevring) Stop(x int, reply *FlutAck) error {
 	if (h.task != FlutTask{}) {
 		fmt.Println("[hevring] stopping task")
 		h.task = FlutTask{}
+		close(h.taskQuit)
+		h.taskQuit = nil
 		reply.Ok = true
 	}
 	return nil

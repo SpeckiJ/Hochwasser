@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"runtime/pprof"
+	"sync"
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
@@ -60,22 +62,38 @@ func main() {
 		} else {
 
 			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
-			pixelflut.Flut(img, offset, *shuffle, *address, *connections)
+			var wg sync.WaitGroup
+			defer wg.Wait()
+			stopChan := make(chan bool)
+			defer close(stopChan)
+
+			wg.Add(1) // :cleanExit: is this WG needed? we only have one task running at a time?
+			go pixelflut.Flut(img, offset, *shuffle, *address, *connections, stopChan, &wg)
 
 			// fetch server state and save to file
 			// @incomplete: make this available also when not fluting?
 			if *fetchImgPath != "" {
-				fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1)
+				fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1, stopChan)
 				*connections -= 1
 				defer writeImage(*fetchImgPath, fetchedImg)
 			}
 
-			// Terminate after timeout to save resources
+			// :cleanExit logic:
+			//   notify all async tasks to stop on interrupt or after timeout,
+			//   then wait for clean shutdown of all tasks before exiting
+			//   TODO: make this available to all invocation types
+
 			timer, err := time.ParseDuration(*runtime)
 			if err != nil {
 				log.Fatal("Invalid runtime specified: " + err.Error())
 			}
-			time.Sleep(timer)
+
+			interruptChan := make(chan os.Signal)
+			signal.Notify(interruptChan, os.Interrupt)
+			select {
+			case <-time.After(timer):
+			case <-interruptChan:
+			}
 		}
 
 	} else if *hevringAddr != "" {
@@ -87,9 +105,3 @@ func main() {
 		log.Fatal("must specify -image or -hevring")
 	}
 }
-
-/**
- * @incomplete: clean exit
- * to ensure cleanup is done (rpc disconnects, cpuprof, image writing, ...),
- * we should catch signals and force-exit all goroutines (bomb, rpc). via channel?
- */
