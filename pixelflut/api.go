@@ -11,9 +11,9 @@ import (
 )
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
-//   using `conns` connections. Pixels are sent row wise, unless `shuffle` is set.
+//   using `conns` connections. Pixels are sent column wise, unless `shuffle`
+//   is set. Stops when stop is closed.
 // @cleanup: use FlutTask{} as arg
-// @incomplete :cleanExit
 func Flut(img image.Image, position image.Point, shuffle bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
 	cmds := commandsFromImage(img, position)
 	if shuffle {
@@ -27,14 +27,16 @@ func Flut(img image.Image, position image.Point, shuffle bool, address string, c
 		go bombAddress(msg, address, stop, &bombWg)
 	}
 	bombWg.Wait()
-	wg.Done()
+	if wg != nil {
+		wg.Done()
+	}
 }
 
 // FetchImage asynchronously uses `conns` to fetch pixels within `bounds` from
 //   a pixelflut server at `address`, and writes them into the returned Image.
 func FetchImage(bounds image.Rectangle, address string, conns int, stop chan bool) (img *image.NRGBA) {
 	img = image.NewNRGBA(bounds)
-	// cmds := cmdsFetchImage(bounds).Chunk(conns)
+	cmds := cmdsFetchImage(bounds).Chunk(conns)
 
 	for i := 0; i < conns; i++ {
 		conn, err := net.Dial("tcp", address)
@@ -42,18 +44,14 @@ func FetchImage(bounds image.Rectangle, address string, conns int, stop chan boo
 			log.Fatal(err)
 		}
 
-		// @cleanup: parsePixels calls conn.Close(), as deferring it here would
-		//   instantly close it
 		go readPixels(img, conn, stop)
-		// go bombConn(cmds[i], conn, stop)
+		go bombConn(cmds[i], conn, stop)
 	}
 
 	return img
 }
 
 func readPixels(target *image.NRGBA, conn net.Conn, stop chan bool) {
-	defer conn.Close()
-
 	reader := bufio.NewReader(conn)
 	col := make([]byte, 3)
 	for {

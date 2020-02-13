@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
-	// "sync"
+	"os"
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
@@ -50,7 +50,6 @@ func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 	fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", task)
 	h.task = task
 	h.taskQuit = make(chan bool)
-	// @incomplete: async errorhandling
 
 	go pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.Address, task.MaxConns, h.taskQuit, nil)
 	reply.Ok = true
@@ -64,7 +63,6 @@ func (h *Hevring) Status(x int, reply *FlutAck) error {
 }
 
 func (h *Hevring) Stop(x int, reply *FlutAck) error {
-	// @incomplete
 	if (h.task != FlutTask{}) {
 		fmt.Println("[hevring] stopping task")
 		h.task = FlutTask{}
@@ -78,7 +76,8 @@ func (h *Hevring) Stop(x int, reply *FlutAck) error {
 func (h *Hevring) Die(x int, reply *FlutAck) error {
 	go func() { // @cleanup: hacky
 		time.Sleep(100 * time.Millisecond)
-		log.Fatal("[hevring] Rán disconnected, stopping")
+		fmt.Println("[hevring] Rán disconnected, stopping")
+		os.Exit(0)
 	}()
 	reply.Ok = true
 	return nil

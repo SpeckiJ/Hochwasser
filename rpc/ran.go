@@ -9,8 +9,8 @@ import (
 	"net"
 	"net/rpc"
 	"os"
-	"os/signal"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,7 +19,10 @@ type Rán struct {
 	task    FlutTask
 }
 
-func SummonRán(address string) *Rán {
+// SummonRán sets up the RPC master, accepting connections at addres (":1234")
+// Connects calls methods on each client's rpc provider, killing all clients
+// when stopChan is closed.
+func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 	r := new(Rán)
 
 	l, err := net.Listen("tcp", address)
@@ -58,8 +61,8 @@ func SummonRán(address string) *Rán {
 			var clients []*rpc.Client
 			for _, c := range r.clients {
 				status := FlutAck{}
-				err3 := c.Call("Hevring.Status", 0, &status)
-				if err3 == nil || status.Ok {
+				err := c.Call("Hevring.Status", 0, &status)
+				if err == nil && status.Ok {
 					clients = append(clients, c)
 				}
 			}
@@ -100,21 +103,18 @@ func SummonRán(address string) *Rán {
 
 	// kill clients on exit
 	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
-		for {
-			<-sigChan
-			for _, c := range r.clients {
-				ack := FlutAck{}
-				c.Call("Hevring.Die", 0, &ack) // @speed: async
-			}
-			os.Exit(0) // @bug :cleanExit
+		<-stopChan
+		for _, c := range r.clients {
+			ack := FlutAck{}
+			c.Call("Hevring.Die", 0, &ack) // @speed: async
 		}
+		wg.Done()
 	}()
 
 	return r
 }
 
+// SetTask assigns a FlutTask to Rán, distributing it to all clients
 func (r *Rán) SetTask(img image.Image, offset image.Point, address string, maxConns int) {
 	// @incomplete: smart task creation:
 	//   fetch server state & sample foreign activity in image regions. assign

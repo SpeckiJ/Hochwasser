@@ -10,7 +10,7 @@ import (
 //   called as goroutines
 
 // bombAddress writes the given message via plain TCP to the given address,
-// forever, as fast as possible.
+// as fast as possible, until stop is closed.
 func bombAddress(message []byte, address string, stop chan bool, wg *sync.WaitGroup) {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -25,7 +25,6 @@ func bombConn(message []byte, conn net.Conn, stop chan bool) {
 	for {
 		select {
 		case <-stop:
-			log.Println("stopChan bombConn")
 			return
 		default:
 			_, err := conn.Write(message)
