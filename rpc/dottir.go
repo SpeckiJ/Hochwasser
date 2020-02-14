@@ -46,11 +46,9 @@ type FlutStatus struct {
 }
 
 func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
-	if (h.task != FlutTask{}) {
-		// @incomplete: stop old task if new task is received
-		fmt.Println("[hevring] already have a task")
-		reply.Ok = false
-		return nil
+	// stop old task if new task is received
+	if h.taskQuit != nil {
+		close(h.taskQuit)
 	}
 
 	fmt.Printf("[hevring] Rán gave us /w o r k/! %v\n", task)
@@ -71,7 +69,7 @@ func (h *Hevring) Status(metrics bool, reply *FlutStatus) error {
 }
 
 func (h *Hevring) Stop(x int, reply *FlutAck) error {
-	if (h.task != FlutTask{}) {
+	if h.taskQuit != nil {
 		fmt.Println("[hevring] stopping task")
 		h.task = FlutTask{}
 		close(h.taskQuit)
@@ -82,7 +80,9 @@ func (h *Hevring) Stop(x int, reply *FlutAck) error {
 }
 
 func (h *Hevring) Die(x int, reply *FlutAck) error {
-	go func() { // @cleanup: hacky
+	// @robustness: waiting for reply to be sent via timeout
+	// @incomplete: should try to reconnect for a bit first
+	go func() {
 		time.Sleep(100 * time.Millisecond)
 		fmt.Println("[hevring] Rán disconnected, stopping")
 		os.Exit(0)

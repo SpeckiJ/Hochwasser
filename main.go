@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
+	"github.com/SpeckiJ/Hochwasser/render"
 	"github.com/SpeckiJ/Hochwasser/rpc"
 )
 
@@ -50,7 +51,12 @@ func main() {
 
 	if *imgPath != "" {
 		offset := image.Pt(*x, *y)
-		img := imgToNRGBA(readImage(*imgPath))
+		imgTmp, err := render.ReadImage(*imgPath)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		img := render.ImgToNRGBA(imgTmp)
 
 		// check connectivity by opening one test connection
 		conn, err := net.Dial("tcp", *address)
@@ -71,7 +77,7 @@ func main() {
 			if *fetchImgPath != "" {
 				fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1, stopChan)
 				*connections -= 1
-				defer writeImage(*fetchImgPath, fetchedImg)
+				defer render.WriteImage(*fetchImgPath, fetchedImg)
 			}
 
 			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊

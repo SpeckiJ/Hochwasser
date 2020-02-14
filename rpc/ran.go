@@ -1,20 +1,19 @@
 package rpc
 
 import (
-	"bufio"
 	"fmt"
 	"image"
 	"log"
 	"net"
 	"net/rpc"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
 )
 
+// Rán represents the RPC hub, used to coordinate `Hevring` clients.
+// Implements `Fluter`
 type Rán struct {
 	clients []*rpc.Client
 	task    FlutTask
@@ -93,70 +92,23 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 		}
 	}()
 
-	// REPL to change tasks without loosing clients
-	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			input := strings.Split(scanner.Text(), " ")
-			cmd := strings.ToLower(input[0])
-			args := input[1:]
-			if cmd == "stop" {
-				for _, c := range r.clients {
-					ack := FlutAck{}
-					c.Call("Hevring.Stop", 0, &ack) // @speed: async
-				}
-
-			} else if cmd == "start" {
-				if (r.task != FlutTask{}) {
-					for _, c := range r.clients {
-						ack := FlutAck{}
-						// @speed: should send tasks async
-						err := c.Call("Hevring.Flut", r.task, &ack)
-						if err != nil || !ack.Ok {
-							log.Printf("[rán] client didn't accept task")
-						}
-					}
-				}
-
-			} else if cmd == "img" && len(args) > 0 {
-				// // @incomplete
-				// path := args[0]
-				// img := readImage(path)
-				// offset := image.Pt(0, 0)
-				// if len(args) == 3 {
-				// 	x := strconv.Atoi(args[1])
-				// 	y := strconv.Atoi(args[2])
-				// 	offset = image.Pt(x, y)
-				// }
-				// task := FlutTask{}
-
-			} else if cmd == "metrics" {
-				r.metrics.Enabled = !r.metrics.Enabled
-
-			}
-		}
-	}()
-
-	// kill clients on exit
-	go func() {
-		<-stopChan
-		for _, c := range r.clients {
-			ack := FlutAck{}
-			c.Call("Hevring.Die", 0, &ack) // @speed: async
-		}
-		wg.Done()
-	}()
+	go RunREPL(r)
+	go r.killClients(stopChan, wg)
 
 	return r
 }
 
-// SetTask assigns a FlutTask to Rán, distributing it to all clients
-func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, maxConns int) {
-	// @incomplete: smart task creation:
-	//   fetch server state & sample foreign activity in image regions. assign
-	//   subregions to clients (per connection), considering their bandwidth.
+func (r *Rán) getTask() FlutTask { return r.task }
 
-	r.task = FlutTask{address, maxConns, img, offset, true}
+func (r *Rán) toggleMetrics() {
+	r.metrics.Enabled = !r.metrics.Enabled
+}
+
+func (r *Rán) applyTask(t FlutTask) {
+	if (t == FlutTask{}) { // @robustness: FlutTask should provide .IsValid()
+		return
+	}
+	r.task = t
 	for _, c := range r.clients {
 		ack := FlutAck{}
 		// @speed: should send tasks async
@@ -165,4 +117,30 @@ func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, max
 			log.Printf("[rán] client didn't accept task")
 		}
 	}
+}
+
+func (r *Rán) stopTask() {
+	// @robustness: errorchecking
+	for _, c := range r.clients {
+		ack := FlutAck{}
+		c.Call("Hevring.Stop", 0, &ack) // @speed: async
+	}
+}
+
+func (r *Rán) killClients(stopChan <-chan bool, wg *sync.WaitGroup) {
+	<-stopChan
+	for _, c := range r.clients {
+		ack := FlutAck{}
+		c.Call("Hevring.Die", 0, &ack) // @speed: async
+	}
+	wg.Done()
+}
+
+// SetTask assigns a FlutTask to Rán, distributing it to all clients
+func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, maxConns int) {
+	// @incomplete: smart task creation:
+	//   fetch server state & sample foreign activity in image regions. assign
+	//   subregions to clients (per connection), considering their bandwidth.
+
+	r.applyTask(FlutTask{address, maxConns, img, offset, true})
 }
