@@ -33,16 +33,14 @@ func (c commands) Shuffle() {
 }
 
 // CommandsFromImage converts an image to the respective pixelflut commands
-func commandsFromImage(img image.Image, offset image.Point) (cmds commands) {
+func commandsFromImage(img *image.NRGBA, offset image.Point) (cmds commands) {
 	b := img.Bounds()
 	cmds = make([][]byte, b.Size().X*b.Size().Y)
 	numCmds := 0
 
 	for x := b.Min.X; x < b.Max.X; x++ {
 		for y := b.Min.Y; y < b.Max.Y; y++ {
-			// ensure we're working with RGBA colors (non-alpha-pre-multiplied)
-			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
-
+			c := img.At(x, y).(color.NRGBA)
 			// ignore transparent pixels
 			if c.A == 0 {
 				continue

@@ -50,7 +50,7 @@ func main() {
 
 	if *imgPath != "" {
 		offset := image.Pt(*x, *y)
-		img := readImage(*imgPath)
+		img := imgToNRGBA(readImage(*imgPath))
 
 		// check connectivity by opening one test connection
 		conn, err := net.Dial("tcp", *address)

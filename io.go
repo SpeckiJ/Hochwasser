@@ -31,3 +31,14 @@ func writeImage(path string, img image.Image) {
 		log.Fatal(err)
 	}
 }
+
+func imgToNRGBA(img image.Image) *image.NRGBA {
+	b := img.Bounds()
+	r := image.NewNRGBA(b)
+	for x := b.Min.X; x < b.Max.X; x++ {
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			r.Set(x, y, img.At(x, y))
+		}
+	}
+	return r
+}

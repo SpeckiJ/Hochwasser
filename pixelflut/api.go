@@ -14,7 +14,7 @@ import (
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
 //   is set. Stops when stop is closed.
 // @cleanup: use FlutTask{} as arg
-func Flut(img image.Image, position image.Point, shuffle bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
+func Flut(img *image.NRGBA, position image.Point, shuffle bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
 	cmds := commandsFromImage(img, position)
 	if shuffle {
 		cmds.Shuffle()

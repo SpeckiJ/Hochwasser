@@ -115,13 +115,12 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 }
 
 // SetTask assigns a FlutTask to Rán, distributing it to all clients
-func (r *Rán) SetTask(img image.Image, offset image.Point, address string, maxConns int) {
+func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, maxConns int) {
 	// @incomplete: smart task creation:
 	//   fetch server state & sample foreign activity in image regions. assign
 	//   subregions to clients (per connection), considering their bandwidth.
 
-	// @bug :imageType
-	r.task = FlutTask{address, maxConns, img.(*image.NRGBA), offset, true}
+	r.task = FlutTask{address, maxConns, img, offset, true}
 	for _, c := range r.clients {
 		ack := FlutAck{}
 		// @speed: should send tasks async

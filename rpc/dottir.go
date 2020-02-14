@@ -32,7 +32,7 @@ type Hevring struct {
 type FlutTask struct {
 	Address  string
 	MaxConns int
-	Img      *image.NRGBA // bug :imageType: should be image.Image, but can't be serialized. do conversion in task creation?
+	Img      *image.NRGBA
 	Offset   image.Point
 	Shuffle  bool
 }
