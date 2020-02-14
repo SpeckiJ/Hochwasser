@@ -39,6 +39,12 @@ type FlutTask struct {
 
 type FlutAck struct{ Ok bool }
 
+type FlutStatus struct {
+	*pixelflut.Performance
+	Ok      bool
+	Fluting bool
+}
+
 func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 	if (h.task != FlutTask{}) {
 		// @incomplete: stop old task if new task is received
@@ -56,9 +62,11 @@ func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 	return nil
 }
 
-func (h *Hevring) Status(x int, reply *FlutAck) error {
-	// @incomplete: provide performance metrics
+func (h *Hevring) Status(metrics bool, reply *FlutStatus) error {
+	pixelflut.PerformanceReporter.Enabled = metrics
+	reply.Performance = pixelflut.PerformanceReporter
 	reply.Ok = true
+	reply.Fluting = h.taskQuit != nil
 	return nil
 }
 

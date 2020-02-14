@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	// "io"
 	"bufio"
 	"fmt"
 	"image"
@@ -12,11 +11,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SpeckiJ/Hochwasser/pixelflut"
 )
 
 type Rán struct {
 	clients []*rpc.Client
 	task    FlutTask
+	metrics pixelflut.Performance
 }
 
 // SummonRán sets up the RPC master, accepting connections at addres (":1234")
@@ -59,17 +61,35 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 			time.Sleep(100 * time.Millisecond)
 
 			var clients []*rpc.Client
+
+			r.metrics.Conns = 0
+			r.metrics.BytesPerSec = 0
+			r.metrics.BytesTotal = 0
+
 			for _, c := range r.clients {
-				status := FlutAck{}
-				err := c.Call("Hevring.Status", 0, &status)
+				status := FlutStatus{}
+				err := c.Call("Hevring.Status", r.metrics.Enabled, &status)
 				if err == nil && status.Ok {
 					clients = append(clients, c)
+					r.metrics.Conns += status.Conns
+					r.metrics.BytesPerSec += status.BytesPerSec
+					r.metrics.BytesTotal += status.BytesTotal
 				}
 			}
 			if len(r.clients) != len(clients) {
 				fmt.Printf("[rán] client disconnected. current clients: %v\n", len(clients))
 			}
 			r.clients = clients
+		}
+	}()
+
+	// print performance
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if r.metrics.Enabled {
+				fmt.Println(r.metrics)
+			}
 		}
 	}()
 
@@ -86,6 +106,18 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 					c.Call("Hevring.Stop", 0, &ack) // @speed: async
 				}
 
+			} else if cmd == "start" {
+				if (r.task != FlutTask{}) {
+					for _, c := range r.clients {
+						ack := FlutAck{}
+						// @speed: should send tasks async
+						err := c.Call("Hevring.Flut", r.task, &ack)
+						if err != nil || !ack.Ok {
+							log.Printf("[rán] client didn't accept task")
+						}
+					}
+				}
+
 			} else if cmd == "img" && len(args) > 0 {
 				// // @incomplete
 				// path := args[0]
@@ -97,6 +129,10 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 				// 	offset = image.Pt(x, y)
 				// }
 				// task := FlutTask{}
+
+			} else if cmd == "metrics" {
+				r.metrics.Enabled = !r.metrics.Enabled
+
 			}
 		}
 	}()
