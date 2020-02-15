@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"image/color"
 	_ "image/gif" // register gif, jpeg, png format handlers
 	_ "image/jpeg"
 	"image/png"
@@ -40,6 +41,19 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 	for x := b.Min.X; x < b.Max.X; x++ {
 		for y := b.Min.Y; y < b.Max.Y; y++ {
 			r.Set(x, y, img.At(x, y))
+		}
+	}
+	return r
+}
+
+func ImgReplaceColors(img *image.NRGBA, from, to color.NRGBA) *image.NRGBA {
+	b := img.Bounds()
+	r := image.NewNRGBA(b)
+	for x := b.Min.X; x < b.Max.X; x++ {
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			if img.At(x, y) == from {
+				r.SetNRGBA(x, y, to)
+			}
 		}
 	}
 	return r

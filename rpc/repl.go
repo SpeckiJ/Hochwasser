@@ -29,6 +29,7 @@ func RunREPL(f Fluter) {
 	mode := commandMode
 	textSize := 4
 	textCol := color.NRGBA{0xff, 0xff, 0xff, 0xff}
+	bgCol := color.NRGBA{}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -42,7 +43,7 @@ func RunREPL(f Fluter) {
 				continue
 			}
 			t := f.getTask()
-			t.Img = render.RenderText(inputStr, textSize, textCol)
+			t.Img = render.RenderText(inputStr, textSize, textCol, bgCol)
 			f.applyTask(t)
 
 		case commandMode:
@@ -92,6 +93,11 @@ func RunREPL(f Fluter) {
 				if len(args) > 1 {
 					if col, err := hex.DecodeString(args[1]); err == nil {
 						textCol = color.NRGBA{col[0], col[1], col[2], 0xff}
+					}
+				}
+				if len(args) > 2 {
+					if col, err := hex.DecodeString(args[2]); err == nil {
+						bgCol = color.NRGBA{col[0], col[1], col[2], 0xff}
 					}
 				}
 

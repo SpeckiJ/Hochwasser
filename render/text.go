@@ -17,7 +17,7 @@ func pt(p fixed.Point26_6) image.Point {
 	}
 }
 
-func RenderText(text string, scale int, col color.Color) *image.NRGBA {
+func RenderText(text string, scale int, col, bgCol color.Color) *image.NRGBA {
 	// @incomplete: draw with texture via Drawer.Src
 	face := basicfont.Face7x13
 	stringBounds, _ := font.BoundString(face, text)
@@ -25,7 +25,10 @@ func RenderText(text string, scale int, col color.Color) *image.NRGBA {
 	b := image.Rectangle{pt(stringBounds.Min), pt(stringBounds.Max)}
 	img := image.NewNRGBA(b)
 
-	draw.Draw(img, b, image.Black, image.Point{}, draw.Src) // fill with black bg
+	// fill with black bg
+	if (bgCol != color.NRGBA{}) {
+		draw.Draw(img, b, image.NewUniform(bgCol), image.Point{}, draw.Src)
+	}
 
 	d := font.Drawer{
 		Dst:  img,

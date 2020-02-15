@@ -8,14 +8,31 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	"github.com/SpeckiJ/Hochwasser/render"
 )
+
+var funmode = true
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
 //   is set. Stops when stop is closed.
 // @cleanup: use FlutTask{} as arg
 func Flut(img *image.NRGBA, position image.Point, shuffle bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
-	cmds := commandsFromImage(img, position)
+	var cmds commands
+	if funmode {
+		// do a RGB split of white
+		imgmod := render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y-10))...)
+		imgmod = render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0xff, 0, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X+10, position.Y))...)
+		imgmod = render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0, 0xff, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y+10))...)
+		cmds = append(cmds, commandsFromImage(img, position)...)
+	} else {
+		cmds = commandsFromImage(img, position)
+	}
+
 	if shuffle {
 		cmds.Shuffle()
 	}
