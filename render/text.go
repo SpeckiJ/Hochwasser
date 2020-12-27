@@ -2,7 +2,6 @@ package render
 
 import (
 	"image"
-	"image/color"
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
@@ -17,7 +16,7 @@ func pt(p fixed.Point26_6) image.Point {
 	}
 }
 
-func RenderText(text string, scale int, col, bgCol color.Color) *image.NRGBA {
+func RenderText(text string, scale int, texture, bgTex image.Image) *image.NRGBA {
 	// @incomplete: draw with texture via Drawer.Src
 	face := basicfont.Face7x13
 	stringBounds, _ := font.BoundString(face, text)
@@ -26,13 +25,13 @@ func RenderText(text string, scale int, col, bgCol color.Color) *image.NRGBA {
 	img := image.NewNRGBA(b)
 
 	// fill with black bg
-	if (bgCol != color.NRGBA{}) {
-		draw.Draw(img, b, image.NewUniform(bgCol), image.Point{}, draw.Src)
+	if bgTex != nil {
+		draw.Draw(img, b, bgTex, image.Point{}, draw.Src)
 	}
 
 	d := font.Drawer{
 		Dst:  img,
-		Src:  image.NewUniform(col),
+		Src:  texture,
 		Face: face,
 	}
 	d.DrawString(text)

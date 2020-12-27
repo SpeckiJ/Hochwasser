@@ -35,6 +35,7 @@ type FlutTask struct {
 	Img      *image.NRGBA
 	Offset   image.Point
 	Shuffle  bool
+	// Effects  []string // @idea shuffle, rgbsplit, randoffset, ...
 }
 
 type FlutAck struct{ Ok bool }

@@ -27,9 +27,9 @@ const textMode = "TXT"
 // RunREPL starts reading os.Stdin for commands to apply to the given Fluter
 func RunREPL(f Fluter) {
 	mode := commandMode
-	textSize := 4
-	textCol := color.NRGBA{0xff, 0xff, 0xff, 0xff}
-	bgCol := color.NRGBA{}
+	textSize := 10
+	var textCol image.Image = image.White
+	var bgCol image.Image = image.Transparent
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -83,22 +83,25 @@ func RunREPL(f Fluter) {
 				f.applyTask(t)
 
 			case "txt":
-				fmt.Printf("[rán] text mode, return via %v\n", commandMode)
-				mode = textMode
 				if len(args) > 0 {
 					if size, err := strconv.Atoi(args[0]); err == nil {
 						textSize = size
 					}
 				}
 				if len(args) > 1 {
-					if col, err := hex.DecodeString(args[1]); err == nil {
-						textCol = color.NRGBA{col[0], col[1], col[2], 0xff}
-					}
+					textCol = parseColorOrPalette(args[1])
 				}
 				if len(args) > 2 {
-					if col, err := hex.DecodeString(args[2]); err == nil {
-						bgCol = color.NRGBA{col[0], col[1], col[2], 0xff}
-					}
+					bgCol = parseColorOrPalette(args[2])
+				}
+				if len(args) < 4 {
+					fmt.Printf("[rán] text mode, return via %v\n", commandMode)
+					mode = textMode
+				} else {
+					input := strings.Join(args[3:], " ")
+					t := f.getTask()
+					t.Img = render.RenderText(input, textSize, textCol, bgCol)
+					f.applyTask(t)
 				}
 
 			case "img":
@@ -118,5 +121,23 @@ func RunREPL(f Fluter) {
 
 			}
 		}
+	}
+}
+
+// try to parse as hex-encoded RGB color,
+// alternatively treat it as palette name. If both fail,
+// give image.Transparent
+func parseColorOrPalette(input string) image.Image {
+	if col, err := hex.DecodeString(input); err == nil {
+		var alpha byte = 0xff
+		if len(col) == 4 {
+			alpha = col[3]
+		}
+		return image.NewUniform(color.NRGBA{col[0], col[1], col[2], alpha})
+	} else if pal := render.PrideFlags[input]; len(pal) != 0 {
+		return &render.StripePattern{Palette: pal, Size: 13}
+	} else {
+		return &render.SineColorPattern{Luma: 0xf0, Freq: 1}
+		return image.Transparent
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/SpeckiJ/Hochwasser/render"
 )
 
-var funmode = true
+var funmode = false
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
@@ -22,11 +22,11 @@ func Flut(img *image.NRGBA, position image.Point, shuffle bool, address string, 
 	var cmds commands
 	if funmode {
 		// do a RGB split of white
-		imgmod := render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
+		imgmod := render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
 		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y-10))...)
-		imgmod = render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0xff, 0, 0xff})
+		imgmod = render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0xff, 0, 0xff})
 		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X+10, position.Y))...)
-		imgmod = render.ImgReplaceColors(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0, 0xff, 0xff})
+		imgmod = render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0, 0xff, 0xff})
 		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y+10))...)
 		cmds = append(cmds, commandsFromImage(img, position)...)
 	} else {

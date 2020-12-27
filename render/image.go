@@ -46,13 +46,17 @@ func ImgToNRGBA(img image.Image) *image.NRGBA {
 	return r
 }
 
-func ImgReplaceColors(img *image.NRGBA, from, to color.NRGBA) *image.NRGBA {
+// ImgColorFilter replaces `from` with `to` in `img`, and sets all other pixels
+// to color.Transparent
+func ImgColorFilter(img *image.NRGBA, from, to color.NRGBA) *image.NRGBA {
 	b := img.Bounds()
 	r := image.NewNRGBA(b)
 	for x := b.Min.X; x < b.Max.X; x++ {
 		for y := b.Min.Y; y < b.Max.Y; y++ {
 			if img.At(x, y) == from {
 				r.SetNRGBA(x, y, to)
+			} else {
+				r.Set(x, y, color.Transparent)
 			}
 		}
 	}
