@@ -45,10 +45,15 @@ func commandsFromImage(img *image.NRGBA, offset image.Point) (cmds commands) {
 			if c.A == 0 {
 				continue
 			}
-			// @incomplete: also send alpha? -> bandwidth tradeoff
-			// @speed: this sprintf call is quite slow..
-			cmd := fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-				x+offset.X, y+offset.Y, c.R, c.G, c.B)
+			var cmd string
+			if c.A != 255 {
+				cmd = fmt.Sprintf("PX %d %d %.2x%.2x%.2x%.2x\n",
+					x+offset.X, y+offset.Y, c.R, c.G, c.B, c.A)
+			} else {
+				// @speed: this sprintf call is quite slow..
+				cmd = fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
+					x+offset.X, y+offset.Y, c.R, c.G, c.B)
+			}
 			cmds[numCmds] = []byte(cmd)
 			numCmds++
 		}
