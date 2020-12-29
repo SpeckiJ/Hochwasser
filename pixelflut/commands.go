@@ -32,7 +32,7 @@ func (c commands) Shuffle() {
 	}
 }
 
-// AddOffset uses the OFFSET command to send the image at a specific place (not supported by all servers. example: https://github.com/TobleMiner/shoreline)
+// OffsetCmd applies offset to all following requests. Not supported by all servers. example: https://github.com/TobleMiner/shoreline.
 func OffsetCmd(x, y int) []byte {
 	return []byte(fmt.Sprintf("OFFSET %d %d\n", x, y))
 }

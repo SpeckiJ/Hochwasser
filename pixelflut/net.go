@@ -3,6 +3,7 @@ package pixelflut
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -74,26 +75,37 @@ func initPerfReporter() *Performance {
 
 // bombAddress writes the given message via plain TCP to the given address,
 // as fast as possible, until stop is closed.
-func bombAddress(message []byte, address string, stop chan bool, wg *sync.WaitGroup) {
+func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, stop chan bool, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
-	bombConn(message, conn, stop)
-	wg.Done()
+	bombConn(message, maxOffsetX, maxOffsetY, conn, stop)
 }
 
-func bombConn(message []byte, conn net.Conn, stop chan bool) {
+func bombConn(message []byte, maxOffsetX, maxOffsetY int, conn net.Conn, stop chan bool) {
 	PerformanceReporter.connsReporter <- 1
 	defer func() { PerformanceReporter.connsReporter <- -1 }()
+
+	var msg = make([]byte, len(message)+16) // leave some space for offset cmd
+	msg = message
+	randOffset := maxOffsetX > 1 && maxOffsetY > 0
 
 	for {
 		select {
 		case <-stop:
 			return
 		default:
-			b, err := conn.Write(message)
+			if randOffset {
+				msg = append(
+					OffsetCmd(rand.Intn(maxOffsetX), rand.Intn(maxOffsetY)),
+					message...,
+				)
+			}
+			b, err := conn.Write(msg)
 			if err != nil {
 				log.Fatal(err)
 			}

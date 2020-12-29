@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math/rand"
 	"net"
 	"sync"
 
@@ -37,9 +36,11 @@ func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset,
 	}
 
 	var messages [][]byte
-	var maxX, maxY int
+	var maxOffsetX, maxOffsetY int
 	if randoffset {
-		maxX, maxY = CanvasSize(address)
+		maxX, maxY := CanvasSize(address)
+		maxOffsetX = maxX - img.Bounds().Canon().Dx()
+		maxOffsetY = maxY - img.Bounds().Canon().Dy()
 		messages = cmds.Chunk(1) // each connection should send the full img
 	} else {
 		messages = cmds.Chunk(conns)
@@ -52,15 +53,7 @@ func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset,
 			msg = messages[i]
 		}
 
-		bombWg.Add(1)
-		if randoffset {
-			msg = append(OffsetCmd(
-				rand.Intn(maxX-img.Bounds().Canon().Dx()),
-				rand.Intn(maxY-img.Bounds().Canon().Dy()),
-			), msg...)
-		}
-
-		go bombAddress(msg, address, stop, &bombWg)
+		go bombAddress(msg, address, maxOffsetX, maxOffsetY, stop, &bombWg)
 	}
 	bombWg.Wait()
 	if wg != nil {
@@ -98,7 +91,7 @@ func FetchImage(bounds image.Rectangle, address string, conns int, stop chan boo
 		}
 
 		go readPixels(img, conn, stop)
-		go bombConn(cmds[i], conn, stop)
+		go bombConn(cmds[i], 0, 0, conn, stop)
 	}
 
 	return img
