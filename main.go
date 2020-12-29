@@ -83,7 +83,7 @@ func main() {
 
 			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
 			wg.Add(1)
-			go pixelflut.Flut(img, offset, *shuffle, false, false, false, *address, *connections, stopChan, &wg)
+			go pixelflut.Flut(img, offset, *shuffle, false, false, *address, *connections, stopChan, &wg)
 		}
 
 	} else if *hevringAddr != "" {

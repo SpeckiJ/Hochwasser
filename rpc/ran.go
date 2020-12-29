@@ -109,12 +109,14 @@ func (r *Rán) applyTask(t FlutTask) {
 		return
 	}
 	r.task = t
-	for _, c := range r.clients {
+	if t.Paused {
+		return
+	}
+	for i, c := range r.clients {
 		ack := FlutAck{}
-		// @speed: should send tasks async
 		err := c.Call("Hevring.Flut", r.task, &ack)
 		if err != nil || !ack.Ok {
-			log.Printf("[rán] client didn't accept task")
+			log.Printf("[rán] client %d didn't accept task", i)
 		}
 	}
 }
@@ -142,5 +144,11 @@ func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, max
 	//   fetch server state & sample foreign activity in image regions. assign
 	//   subregions to clients (per connection), considering their bandwidth.
 
-	r.applyTask(FlutTask{address, maxConns, img, offset, true})
+	r.applyTask(FlutTask{
+		Address:  address,
+		MaxConns: maxConns,
+		Img:      img,
+		Offset:   offset,
+		Shuffle:  true,
+	})
 }

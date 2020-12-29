@@ -21,8 +21,8 @@ type Fluter interface {
 	toggleMetrics()
 }
 
-const commandMode = "CMD"
-const textMode = "TXT"
+const commandMode = "cmd"
+const textMode = "txt"
 
 // RunREPL starts reading os.Stdin for commands to apply to the given Fluter
 func RunREPL(f Fluter) {
@@ -31,13 +31,16 @@ func RunREPL(f Fluter) {
 	var textCol image.Image = image.White
 	var bgCol image.Image = image.Transparent
 
+	fmt.Print("[rán] REPL is active. ")
+	printHelp()
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		inputStr := scanner.Text()
 
-		switch mode {
+		switch strings.ToLower(mode) {
 		case textMode:
-			if inputStr == commandMode {
+			if strings.ToLower(inputStr) == commandMode {
 				fmt.Println("[rán] command mode")
 				mode = commandMode
 				continue
@@ -50,52 +53,48 @@ func RunREPL(f Fluter) {
 			input := strings.Split(inputStr, " ")
 			cmd := strings.ToLower(input[0])
 			args := input[1:]
+			t := f.getTask()
+			printTask := true
+
 			switch cmd {
 			case "stop":
+				t.Paused = true
 				f.stopTask()
+				printTask = false
 
 			case "start":
-				f.applyTask(f.getTask())
+				t.Paused = false
 
 			case "offset":
-				if len(args) == 2 {
+				if len(args) == 1 && args[0] == "rand" {
+					t.RandOffset = true
+					t.Offset = image.Point{}
+				} else if len(args) == 2 {
+					t.RandOffset = false
 					x, err := strconv.Atoi(args[0])
 					y, err2 := strconv.Atoi(args[1])
 					if err == nil && err2 == nil {
-						t := f.getTask()
 						t.Offset = image.Pt(x, y)
-						f.applyTask(t)
 					}
 				}
 
 			case "conns":
 				if len(args) == 1 {
 					if conns, err := strconv.Atoi(args[0]); err == nil {
-						t := f.getTask()
 						t.MaxConns = conns
-						f.applyTask(t)
 					}
 				}
 
+			case "addr":
+				if len(args) == 1 {
+					t.Address = args[0]
+				}
+
 			case "shuffle":
-				t := f.getTask()
 				t.Shuffle = !t.Shuffle
-				f.applyTask(t)
 
 			case "rgbsplit":
-				t := f.getTask()
 				t.RGBSplit = !t.RGBSplit
-				f.applyTask(t)
-
-			case "randoffset":
-				t := f.getTask()
-				t.RandOffset = !t.RandOffset
-				f.applyTask(t)
-
-			case "newconn":
-				t := f.getTask()
-				t.NewConn = !t.NewConn
-				f.applyTask(t)
 
 			case "txt":
 				if len(args) > 0 {
@@ -110,33 +109,57 @@ func RunREPL(f Fluter) {
 					bgCol = parseColorOrPalette(args[2])
 				}
 				if len(args) < 4 {
-					fmt.Printf("[rán] text mode, return via %v\n", commandMode)
+					fmt.Printf("[rán] text mode, return via '%v'\n", strings.ToUpper(commandMode))
 					mode = textMode
+					printTask = false
 				} else {
 					input := strings.Join(args[3:], " ")
-					t := f.getTask()
 					t.Img = render.RenderText(input, textSize, textCol, bgCol)
-					f.applyTask(t)
 				}
 
 			case "img":
 				if len(args) > 0 {
 					path := strings.Join(args, " ")
-					t := f.getTask()
 					if img, err := render.ReadImage(path); err != nil {
 						fmt.Println(err)
 					} else {
 						t.Img = render.ImgToNRGBA(img)
-						f.applyTask(t)
 					}
 				}
 
 			case "metrics":
 				f.toggleMetrics()
+				printTask = false
 
+			default:
+				printTask = false
+				fmt.Print("[rán] unknown command. ")
+				printHelp()
 			}
+
+			if printTask {
+				fmt.Println(t)
+			}
+			f.applyTask(t)
 		}
 	}
+}
+
+func printHelp() {
+	fmt.Println(`available commands:
+	start					start fluting
+	stop					pause fluting
+	conns <n>				set number of connections per client
+	addr <host>:<port>			set target server
+	offset <x> <y>				set top-left offset
+	offset rand				random offset for each draw
+	metrics					toggle bandwidth reporting (may cost some performance)
+
+	img <filepath>				set image
+	txt <scale> <color <bgcolor> <txt>	send text
+	txt [<scale> [<color> [<bgcolor>]]	enter interactive text mode
+	rgbsplit				toggle RGB split effect
+	shuffle					toggle between column-wise & randomized draw order`)
 }
 
 // try to parse as hex-encoded RGB color,

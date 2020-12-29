@@ -16,7 +16,7 @@ import (
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
 //   is set. Stops when stop is closed.
 // @cleanup: use FlutTask{} as arg
-func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset, recreateConns bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
+func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
 	var cmds commands
 	if rgbsplit {
 		// do a RGB split of white
