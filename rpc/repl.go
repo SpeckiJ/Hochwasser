@@ -82,6 +82,21 @@ func RunREPL(f Fluter) {
 				t.Shuffle = !t.Shuffle
 				f.applyTask(t)
 
+			case "rgbsplit":
+				t := f.getTask()
+				t.RGBSplit = !t.RGBSplit
+				f.applyTask(t)
+
+			case "randoffset":
+				t := f.getTask()
+				t.RandOffset = !t.RandOffset
+				f.applyTask(t)
+
+			case "newconn":
+				t := f.getTask()
+				t.NewConn = !t.NewConn
+				f.applyTask(t)
+
 			case "txt":
 				if len(args) > 0 {
 					if size, err := strconv.Atoi(args[0]); err == nil {

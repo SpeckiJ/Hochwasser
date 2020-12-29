@@ -69,7 +69,8 @@ func main() {
 			// run RPC server, tasking clients to flut
 			wg.Add(1)
 			r := rpc.SummonRán(*ránAddr, stopChan, &wg)
-			r.SetTask(img, offset, *address, *connections) // @incomplete
+			// TODO: startup without a task, but init params
+			r.SetTask(img, offset, *address, *connections)
 
 		} else {
 			// fetch server state and save to file
@@ -82,7 +83,7 @@ func main() {
 
 			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
 			wg.Add(1)
-			go pixelflut.Flut(img, offset, *shuffle, *address, *connections, stopChan, &wg)
+			go pixelflut.Flut(img, offset, *shuffle, false, false, false, *address, *connections, stopChan, &wg)
 		}
 
 	} else if *hevringAddr != "" {

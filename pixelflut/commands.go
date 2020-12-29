@@ -32,6 +32,11 @@ func (c commands) Shuffle() {
 	}
 }
 
+// AddOffset uses the OFFSET command to send the image at a specific place (not supported by all servers. example: https://github.com/TobleMiner/shoreline)
+func OffsetCmd(x, y int) []byte {
+	return []byte(fmt.Sprintf("OFFSET %d %d\n", x, y))
+}
+
 // CommandsFromImage converts an image to the respective pixelflut commands
 func commandsFromImage(img *image.NRGBA, offset image.Point) (cmds commands) {
 	b := img.Bounds()

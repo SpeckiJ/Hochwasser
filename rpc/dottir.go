@@ -30,12 +30,14 @@ type Hevring struct {
 }
 
 type FlutTask struct {
-	Address  string
-	MaxConns int
-	Img      *image.NRGBA
-	Offset   image.Point
-	Shuffle  bool
-	// Effects  []string // @idea shuffle, rgbsplit, randoffset, ...
+	Address    string
+	MaxConns   int
+	Img        *image.NRGBA
+	Offset     image.Point
+	Shuffle    bool // TODO: refactor these as RenderOpts bitfield
+	RGBSplit   bool
+	RandOffset bool
+	NewConn    bool
 }
 
 type FlutAck struct{ Ok bool }
@@ -56,7 +58,7 @@ func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 	h.task = task
 	h.taskQuit = make(chan bool)
 
-	go pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.Address, task.MaxConns, h.taskQuit, nil)
+	go pixelflut.Flut(task.Img, task.Offset, task.Shuffle, task.RGBSplit, task.RandOffset, task.NewConn, task.Address, task.MaxConns, h.taskQuit, nil)
 	reply.Ok = true
 	return nil
 }

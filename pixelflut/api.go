@@ -6,21 +6,20 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
 
 	"github.com/SpeckiJ/Hochwasser/render"
 )
 
-var funmode = false
-
 // Flut asynchronously sends the given image to pixelflut server at `address`
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
 //   is set. Stops when stop is closed.
 // @cleanup: use FlutTask{} as arg
-func Flut(img *image.NRGBA, position image.Point, shuffle bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
+func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset, recreateConns bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
 	var cmds commands
-	if funmode {
+	if rgbsplit {
 		// do a RGB split of white
 		imgmod := render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
 		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y-10))...)
@@ -36,17 +35,54 @@ func Flut(img *image.NRGBA, position image.Point, shuffle bool, address string, 
 	if shuffle {
 		cmds.Shuffle()
 	}
-	messages := cmds.Chunk(conns)
+
+	var messages [][]byte
+	var maxX, maxY int
+	if randoffset {
+		maxX, maxY = CanvasSize(address)
+		messages = cmds.Chunk(1) // each connection should send the full img
+	} else {
+		messages = cmds.Chunk(conns)
+	}
 
 	bombWg := sync.WaitGroup{}
-	for _, msg := range messages {
+	for i := 0; i < conns; i++ {
+		msg := messages[0]
+		if len(messages) > i {
+			msg = messages[i]
+		}
+
 		bombWg.Add(1)
+		if randoffset {
+			msg = append(OffsetCmd(
+				rand.Intn(maxX-img.Bounds().Canon().Dx()),
+				rand.Intn(maxY-img.Bounds().Canon().Dy()),
+			), msg...)
+		}
+
 		go bombAddress(msg, address, stop, &bombWg)
 	}
 	bombWg.Wait()
 	if wg != nil {
 		wg.Done()
 	}
+}
+
+// CanvasSize returns the size of the canvas as returned by the server
+func CanvasSize(address string) (int, int) {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	conn.Write([]byte("SIZE\n"))
+	reader := bufio.NewReader(conn)
+	res, err := reader.ReadSlice('\n')
+	if err != nil {
+		log.Fatal(err)
+	}
+	return parseXY(res[5:])
 }
 
 // FetchImage asynchronously uses `conns` to fetch pixels within `bounds` from
@@ -84,20 +120,25 @@ func readPixels(target *image.NRGBA, conn net.Conn, stop chan bool) {
 
 			// parse response ("PX <x> <y> <col>\n")
 			colorStart := len(res) - 7
-			xy := res[3 : colorStart-1]
-			yStart := 0
-			for yStart = len(xy) - 2; yStart >= 0; yStart-- {
-				if xy[yStart] == ' ' {
-					break
-				}
-			}
-			x := asciiToInt(xy[:yStart])
-			y := asciiToInt(xy[yStart+1:])
+			x, y := parseXY(res[3 : colorStart-1])
 			hex.Decode(col, res[colorStart:len(res)-1])
 
 			target.SetNRGBA(x, y, color.NRGBA{col[0], col[1], col[2], 255})
 		}
 	}
+}
+
+func parseXY(xy []byte) (int, int) {
+	last := len(xy) - 1
+	yStart := last - 1 // y is at least one char long
+	for ; yStart >= 0; yStart-- {
+		if xy[yStart] == ' ' {
+			break
+		}
+	}
+	x := asciiToInt(xy[:yStart])
+	y := asciiToInt(xy[yStart+1 : last])
+	return x, y
 }
 
 func asciiToInt(buf []byte) (v int) {
