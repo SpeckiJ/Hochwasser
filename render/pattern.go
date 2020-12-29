@@ -8,27 +8,31 @@ import (
 	"golang.org/x/image/draw"
 )
 
-// pattern provides infinite algorithmically generated patterns and implements
+// Pattern provides infinite algorithmically generated Patterns and implements
 // the image.Image interface.
-type pattern struct{}
+type Pattern struct {
+	Size image.Point
+}
 
 // Image interface
-func (c *pattern) ColorModel() color.Model { return color.NRGBAModel }
-func (c *pattern) At(x, y int) color.Color { return color.Transparent }
-func (c *pattern) Bounds() image.Rectangle {
+func (c *Pattern) ColorModel() color.Model { return color.NRGBAModel }
+func (c *Pattern) At(x, y int) color.Color { return color.Transparent }
+func (c *Pattern) Bounds() image.Rectangle {
 	return image.Rectangle{image.Point{-1e9, -1e9}, image.Point{1e9, 1e9}}
 }
 
-func (p *pattern) ToFixedImage(bounds image.Rectangle) *image.NRGBA {
+func (p *Pattern) ToFixedImage(bounds image.Rectangle) *image.NRGBA {
 	img := image.NewNRGBA(bounds)
+	// TODO: allow setting a mask?
+	// override size for pattern?
+	p.Size = bounds.Size() // override size for this Pattern
 	draw.Draw(img, bounds, p, image.Point{}, draw.Src)
 	return img
 }
 
 type StripePattern struct {
-	pattern
+	Pattern
 	Palette color.Palette
-	Size    int
 }
 
 func (c *StripePattern) At(x, y int) color.Color {
@@ -37,7 +41,7 @@ func (c *StripePattern) At(x, y int) color.Color {
 		return color.Transparent
 	}
 
-	pxPerStripe := c.Size / n
+	pxPerStripe := c.Size.Y / n
 	if pxPerStripe <= 0 {
 		pxPerStripe = 1
 	}
@@ -46,8 +50,8 @@ func (c *StripePattern) At(x, y int) color.Color {
 }
 
 func NewPrideImage(p color.Palette, bounds image.Rectangle) image.Image {
-	pattern := StripePattern{Palette: p, Size: bounds.Dy()}
-	return pattern.ToFixedImage(bounds)
+	Pattern := StripePattern{Palette: p}
+	return Pattern.ToFixedImage(bounds)
 }
 
 var PrideFlags = map[string]color.Palette{
@@ -74,27 +78,67 @@ var PrideFlags = map[string]color.Palette{
 	},
 }
 
-type SineColorPattern struct {
-	pattern
-	Luma  uint8
-	Freq  float64
-	Phase float64
+type DynamicPattern struct {
+	Pattern
+
+	Color func(x, y int, p *DynamicPattern) (float64, float64, float64) // should return rgb in [0,1] range
+
+	Luma  float64 // color parameter
+	Freq  float64 // frequency parameter
+	Phase float64 // phase parameter
+
+	Brightness float64 // additive base brightness
+	ColFactor  float64 // Pattern intensity
 }
 
-func (c *SineColorPattern) At(x, y int) color.Color {
-	TAU := 6.28318
-	offset := 0.5
-	scale := 0.5
-	v := math.Atan2(float64(x), float64(y))
-
+func (c *DynamicPattern) At(x, y int) color.Color {
 	col := color.NRGBA{}
-	col.R = uint8((offset+scale*math.Sin(v/c.Freq*TAU))*128 + 128)
-	col.G = uint8((offset+scale*math.Sin(v/c.Freq*TAU+TAU/3))*128 + 128)
-	col.B = uint8((offset+scale*math.Sin(v/c.Freq*TAU+TAU/1.5))*128 + 128)
+
+	if c.ColFactor == 0.0 && c.Brightness == 0.0 {
+		c.ColFactor = 1.0
+	}
+	if c.Color != nil {
+		r, g, b := c.Color(x, y, c)
+		col.R = uint8(r * c.ColFactor * 255)
+		col.G = uint8(g * c.ColFactor * 255)
+		col.B = uint8(b * c.ColFactor * 255)
+	}
+	if c.Freq == 0.0 {
+		c.Freq = 1.0
+	}
+
+	col.R = col.R + uint8(255*c.Brightness)
+	col.G = col.G + uint8(255*c.Brightness)
+	col.B = col.B + uint8(255*c.Brightness)
 	col.A = 0xff
 
-	// col.R = c.Luma
-	// col.G = uint8(math.Sin(float64(x)/c.Freq+c.Phase) * 128 + 128)
-	// col.B = uint8(math.Cos(float64(y)/c.Freq+c.Phase) * 128 + 128)
 	return col
+}
+
+var DynPatterns = map[string]image.Image{
+	"rbow": &DynamicPattern{
+		Color: func(x, y int, p *DynamicPattern) (float64, float64, float64) {
+			xx := float64(x) / 26.0 // TODO: dynamic sizing
+			yy := float64(y) / 13.0
+			r := 0.5 + 0.5*math.Cos(xx+p.Phase)
+			g := 0.5 + 0.5*math.Sin(yy+p.Phase)
+			b := 0.5 + 0.5*math.Sin(xx+p.Phase)*math.Cos(yy+p.Phase)
+			return r, g, b
+		},
+	},
+
+	"pastel": &DynamicPattern{
+		Brightness: 0.5, // TODO: expose these params?
+		ColFactor:  0.5,
+		Freq:       5.0,
+
+		Color: func(x, y int, p *DynamicPattern) (float64, float64, float64) {
+			offset := 0.0
+			v := math.Atan2(float64(x)-offset, float64(y)-offset) + p.Phase
+			r := 0.5 + 0.5*math.Sin(v*p.Freq)
+			g := 0.5 + 0.5*math.Cos(v*p.Freq)
+			b := 0.5 + 0.5*math.Sin(v*p.Freq+6.28318/p.Luma)
+			return r, g, b
+		},
+	},
 }

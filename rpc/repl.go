@@ -128,16 +128,27 @@ func RunREPL(f Fluter) {
 // alternatively treat it as palette name. If both fail,
 // give image.Transparent
 func parseColorOrPalette(input string) image.Image {
-	if col, err := hex.DecodeString(input); err == nil {
+	if input == "w" {
+		return image.NewUniform(color.White)
+	} else if input == "b" {
+		return image.NewUniform(color.Black)
+	} else if input == "t" {
+		return image.Transparent
+	} else if col, err := hex.DecodeString(input); err == nil && len(col) >= 3 {
 		var alpha byte = 0xff
 		if len(col) == 4 {
 			alpha = col[3]
 		}
 		return image.NewUniform(color.NRGBA{col[0], col[1], col[2], alpha})
-	} else if pal := render.PrideFlags[input]; len(pal) != 0 {
-		return &render.StripePattern{Palette: pal, Size: 13}
-	} else {
-		return &render.SineColorPattern{Luma: 0xf0, Freq: 1}
-		return image.Transparent
 	}
+
+	if pal := render.PrideFlags[input]; len(pal) != 0 {
+		return &render.StripePattern{Palette: pal}
+	}
+
+	if p, ok := render.DynPatterns[input]; ok {
+		return p
+	}
+
+	return image.Transparent
 }
