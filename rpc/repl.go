@@ -158,7 +158,7 @@ func parseColorOrPalette(input string) image.Image {
 	}
 
 	if pal := render.PrideFlags[input]; len(pal) != 0 {
-		return &render.StripePattern{Palette: pal}
+		return &render.StripePattern{Palette: pal, Size: 13}
 	}
 
 	if p, ok := render.DynPatterns[input]; ok {

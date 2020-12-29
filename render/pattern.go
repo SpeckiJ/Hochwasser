@@ -11,7 +11,6 @@ import (
 // Pattern provides infinite algorithmically generated Patterns and implements
 // the image.Image interface.
 type Pattern struct {
-	Size image.Point
 }
 
 // Image interface
@@ -25,13 +24,13 @@ func (p *Pattern) ToFixedImage(bounds image.Rectangle) *image.NRGBA {
 	img := image.NewNRGBA(bounds)
 	// TODO: allow setting a mask?
 	// override size for pattern?
-	p.Size = bounds.Size() // override size for this Pattern
 	draw.Draw(img, bounds, p, image.Point{}, draw.Src)
 	return img
 }
 
 type StripePattern struct {
 	Pattern
+	Size    int
 	Palette color.Palette
 }
 
@@ -41,7 +40,7 @@ func (c *StripePattern) At(x, y int) color.Color {
 		return color.Transparent
 	}
 
-	pxPerStripe := c.Size.Y / n
+	pxPerStripe := c.Size / n
 	if pxPerStripe <= 0 {
 		pxPerStripe = 1
 	}
