@@ -11,7 +11,7 @@ import (
 	"golang.org/x/image/draw"
 )
 
-func ReadImage(path string) (image.Image, error) {
+func ReadImage(path string) (*image.NRGBA, error) {
 	reader, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func ReadImage(path string) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return img, nil
+	return imgToNRGBA(img), nil
 }
 
 func WriteImage(path string, img image.Image) error {
@@ -35,7 +35,7 @@ func WriteImage(path string, img image.Image) error {
 	return nil
 }
 
-func ImgToNRGBA(img image.Image) *image.NRGBA {
+func imgToNRGBA(img image.Image) *image.NRGBA {
 	b := img.Bounds()
 	r := image.NewNRGBA(b)
 	for x := b.Min.X; x < b.Max.X; x++ {
