@@ -64,11 +64,10 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 
 		var img *image.NRGBA
 		if *imgPath != "" {
-			imgTmp, err := render.ReadImage(*imgPath)
-			if err != nil {
+			var err error
+			if img, err = render.ReadImage(*imgPath); err != nil {
 				log.Fatal(err)
 			}
-			img = render.ImgToNRGBA(imgTmp)
 		}
 
 		r.SetTask(img, image.Pt(*x, *y), *address, *connections)

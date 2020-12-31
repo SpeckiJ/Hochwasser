@@ -123,7 +123,7 @@ func RunREPL(f Fluter) {
 					if img, err := render.ReadImage(path); err != nil {
 						fmt.Println(err)
 					} else {
-						t.Img = render.ImgToNRGBA(img)
+						t.Img = img
 					}
 				}
 
