@@ -10,13 +10,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/SpeckiJ/Hochwasser/pixelflut"
 	"github.com/SpeckiJ/Hochwasser/render"
 )
 
 // Fluter implements flut operations that can be triggered via a REPL
 type Fluter interface {
-	getTask() FlutTask
-	applyTask(FlutTask)
+	getTask() pixelflut.FlutTask
+	applyTask(pixelflut.FlutTask)
 	stopTask()
 	toggleMetrics()
 }
@@ -122,6 +123,7 @@ func RunREPL(f Fluter) {
 					path := strings.Join(args, " ")
 					if img, err := render.ReadImage(path); err != nil {
 						fmt.Println(err)
+						continue
 					} else {
 						t.Img = img
 					}
@@ -147,19 +149,19 @@ func RunREPL(f Fluter) {
 
 func printHelp() {
 	fmt.Println(`available commands:
-	start					start fluting
-	stop					pause fluting
-	conns <n>				set number of connections per client
-	addr <host>:<port>			set target server
-	offset <x> <y>				set top-left offset
-	offset rand				random offset for each draw
-	metrics					toggle bandwidth reporting (may cost some performance)
+	start                                start fluting
+	stop                                 pause fluting
+	conns <n>                            set number of connections per client
+	addr <host>:<port>                   set target server
+	offset <x> <y>                       set top-left offset
+	offset rand                          random offset for each draw
+	metrics                              toggle bandwidth reporting (may cost some performance)
 
-	img <filepath>				set image
-	txt <scale> <color <bgcolor> <txt>	send text
-	txt [<scale> [<color> [<bgcolor>]]	enter interactive text mode
-	rgbsplit				toggle RGB split effect
-	shuffle					toggle between column-wise & randomized draw order`)
+	img <filepath>                       set image
+	txt <scale> <color <bgcolor> <txt>   send text
+	txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
+	rgbsplit                             toggle RGB split effect
+	shuffle                              toggle between column-wise & randomized draw order`)
 }
 
 // try to parse as hex-encoded RGB color,

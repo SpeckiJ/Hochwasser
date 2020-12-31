@@ -70,7 +70,15 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 			}
 		}
 
-		r.SetTask(img, image.Pt(*x, *y), *address, *connections)
+		r.SetTask(pixelflut.FlutTask{
+			FlutTaskOpts: pixelflut.FlutTaskOpts{
+				Address:  *address,
+				MaxConns: *connections,
+				Offset:   image.Pt(*x, *y),
+				Shuffle:  true,
+			},
+			Img: img,
+		})
 	}
 
 	if startClient {
