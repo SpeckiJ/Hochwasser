@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+const (
+	timeoutMin = 100 * time.Millisecond
+	timeoutMax = 10 * time.Second
+)
+
 // Performance contains pixelflut metrics
 type Performance struct {
 	Enabled     bool
@@ -22,7 +27,7 @@ type Performance struct {
 
 func (p Performance) String() string {
 	return fmt.Sprintf("%v conns\t%v\t%v/s",
-		p.Conns, fmtBytes(p.BytesTotal), fmtBytes(p.BytesPerSec))
+		p.Conns, fmtBytes(p.BytesTotal), fmtBit(p.BytesPerSec))
 }
 
 // https://yourbasic.org/golang/byte-count.go
@@ -38,6 +43,21 @@ func fmtBytes(b int) string {
 	}
 	return fmt.Sprintf("%.1f %ciB",
 		float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func fmtBit(b int) string {
+	const unit = 1000
+	b *= 8
+	if b < unit {
+		return fmt.Sprintf("%d b", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cb",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
 // PerformanceReporter provides pixelflut performance metrics, when Enabled is true.
@@ -78,9 +98,7 @@ func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, sto
 	wg.Add(1)
 	defer wg.Done()
 
-	timeoutMin := 100 * time.Millisecond
-	timeoutMax := 10 * time.Second
-	timeout := 200 * time.Millisecond
+	timeout := timeoutMin
 
 	for {
 		conn, err := net.Dial("tcp", address)
