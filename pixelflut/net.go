@@ -2,7 +2,6 @@ package pixelflut
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"sync"
@@ -74,30 +73,51 @@ func initPerfReporter() *Performance {
 }
 
 // bombAddress writes the given message via plain TCP to the given address,
-// as fast as possible, until stop is closed.
+// as fast as possible, until stop is closed. retries with exponential backoff on network errors.
 func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, stop chan bool, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		log.Fatal(err)
+
+	timeoutMin := 100 * time.Millisecond
+	timeoutMax := 10 * time.Second
+	timeout := 200 * time.Millisecond
+
+	for {
+		conn, err := net.Dial("tcp", address)
+		if err != nil {
+			// this was a network error, retry!
+			fmt.Printf("[net] error: %s. retrying in %s\n", err, timeout)
+			time.Sleep(timeout)
+			timeout *= 2
+			if timeout > timeoutMax {
+				timeout = timeoutMax
+			}
+			continue
+		}
+
+		fmt.Printf("[net] bombing %s with new connection\n", address)
+
+		err = bombConn(message, maxOffsetX, maxOffsetY, conn, stop)
+		conn.Close()
+		timeout = timeoutMin
+		if err == nil {
+			break // we're supposed to exit
+		}
 	}
-	defer conn.Close()
-	bombConn(message, maxOffsetX, maxOffsetY, conn, stop)
 }
 
-func bombConn(message []byte, maxOffsetX, maxOffsetY int, conn net.Conn, stop chan bool) {
+func bombConn(message []byte, maxOffsetX, maxOffsetY int, conn net.Conn, stop chan bool) error {
 	PerformanceReporter.connsReporter <- 1
 	defer func() { PerformanceReporter.connsReporter <- -1 }()
 
 	var msg = make([]byte, len(message)+16) // leave some space for offset cmd
 	msg = message
-	randOffset := maxOffsetX > 1 && maxOffsetY > 0
+	randOffset := maxOffsetX > 0 && maxOffsetY > 0
 
 	for {
 		select {
 		case <-stop:
-			return
+			return nil
 		default:
 			if randOffset {
 				msg = append(
@@ -107,7 +127,7 @@ func bombConn(message []byte, maxOffsetX, maxOffsetY int, conn net.Conn, stop ch
 			}
 			b, err := conn.Write(msg)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			if PerformanceReporter.Enabled {
 				PerformanceReporter.bytesReporter <- b
