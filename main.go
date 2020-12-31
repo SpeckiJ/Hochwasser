@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -30,6 +31,7 @@ var (
 
 func main() {
 	flag.Parse()
+	rand.Seed(time.Now().UnixNano())
 	task := runWithExitHandler(taskFromFlags)
 	if *cpuprofile != "" {
 		runWithProfiler(*cpuprofile, task)
@@ -52,10 +54,12 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 		os.Exit(1)
 	}
 
+	if startServer && startClient && rán == "" && hev == "" {
+		rán = fmt.Sprintf(":%d", rand.Intn(30000)+1000)
+		hev = rán
+	}
+
 	if startServer {
-		if rán == "" {
-			rán = ":5555"
-		}
 		r := rpc.SummonRán(rán, stop, wg)
 
 		var img *image.NRGBA
@@ -71,9 +75,6 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 	}
 
 	if startClient {
-		if hev == "" {
-			hev = ":5555"
-		}
 		rpc.ConnectHevring(hev, stop, wg)
 	}
 
