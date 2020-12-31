@@ -82,10 +82,16 @@ func CanvasSize(address string) (int, int) {
 }
 
 // FetchImage asynchronously uses `conns` to fetch pixels within `bounds` from
-//   a pixelflut server at `address`, and writes them into the returned Image.
-func FetchImage(bounds image.Rectangle, address string, conns int, stop chan bool) (img *image.NRGBA) {
-	img = image.NewNRGBA(bounds)
-	cmds := cmdsFetchImage(bounds).Chunk(conns)
+// a pixelflut server at `address`, and writes them into the returned Image.
+// If bounds is nil, the server's entire canvas is fetched.
+func FetchImage(bounds *image.Rectangle, address string, conns int, stop chan bool) (img *image.NRGBA) {
+	if bounds == nil {
+		x, y := CanvasSize(address)
+		bounds = &image.Rectangle{Max: image.Pt(x, y)}
+	}
+
+	img = image.NewNRGBA(*bounds)
+	cmds := cmdsFetchImage(*bounds).Chunk(conns)
 
 	for i := 0; i < conns; i++ {
 		conn, err := net.Dial("tcp", address)
@@ -102,7 +108,7 @@ func FetchImage(bounds image.Rectangle, address string, conns int, stop chan boo
 
 func readPixels(target *image.NRGBA, conn net.Conn, stop chan bool) {
 	reader := bufio.NewReader(conn)
-	col := make([]byte, 3)
+	col := make([]byte, 4)
 	for {
 		select {
 		case <-stop:
@@ -114,12 +120,13 @@ func readPixels(target *image.NRGBA, conn net.Conn, stop chan bool) {
 				log.Fatal(err)
 			}
 
-			// parse response ("PX <x> <y> <col>\n")
-			colorStart := len(res) - 7
-			x, y := parseXY(res[3 : colorStart-1])
+			// parse response ("PX <x> <y> <rrggbbaa>\n")
+			// NOTE: shoreline sends alpha, pixelnuke does not!
+			colorStart := len(res) - 9
+			x, y := parseXY(res[3:colorStart])
 			hex.Decode(col, res[colorStart:len(res)-1])
 
-			target.SetNRGBA(x, y, color.NRGBA{col[0], col[1], col[2], 255})
+			target.SetNRGBA(x, y, color.NRGBA{col[0], col[1], col[2], col[3]})
 		}
 	}
 }

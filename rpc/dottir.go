@@ -6,14 +6,15 @@ import (
 	"log"
 	"net"
 	"net/rpc"
-	"os"
+	"sync"
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
 )
 
-func ConnectHevring(ránAddress string) {
-	rpc.Register(new(Hevring))
+func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) {
+	h := new(Hevring)
+	rpc.Register(h)
 
 	fmt.Printf("[hevring] greeting Rán at %s\n", ránAddress)
 	conn, err := net.Dial("tcp", ránAddress)
@@ -22,11 +23,27 @@ func ConnectHevring(ránAddress string) {
 	}
 	go rpc.ServeConn(conn)
 	fmt.Printf("[hevring] awaiting task from Rán\n")
+
+	h.quit = stop
+	h.wg = wg
+	h.wg.Add(1)
+	go func() {
+		select {
+		case <-h.quit:
+		}
+		if h.taskQuit != nil {
+			close(h.taskQuit)
+			h.taskQuit = nil
+		}
+		h.wg.Done()
+	}()
 }
 
 type Hevring struct {
 	task     FlutTask
 	taskQuit chan bool
+	quit     chan bool
+	wg       *sync.WaitGroup
 }
 
 type FlutTask struct {
@@ -61,7 +78,7 @@ func (h *Hevring) Flut(task FlutTask, reply *FlutAck) error {
 		close(h.taskQuit)
 	}
 
-	fmt.Printf("[hevring] Rán gave us /w o r k/!\n%v\n", task)
+	fmt.Printf("[hevring] Rán gave us work!\n%v\n", task)
 	h.task = task
 	h.taskQuit = make(chan bool)
 
@@ -93,9 +110,9 @@ func (h *Hevring) Die(x int, reply *FlutAck) error {
 	// @robustness: waiting for reply to be sent via timeout
 	// @incomplete: should try to reconnect for a bit first
 	go func() {
-		time.Sleep(100 * time.Millisecond)
 		fmt.Println("[hevring] Rán disconnected, stopping")
-		os.Exit(0)
+		time.Sleep(100 * time.Millisecond)
+		close(h.quit)
 	}()
 	reply.Ok = true
 	return nil

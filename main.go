@@ -2,105 +2,141 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"image"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"runtime/pprof"
 	"sync"
+	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
 	"github.com/SpeckiJ/Hochwasser/render"
 	"github.com/SpeckiJ/Hochwasser/rpc"
 )
 
-var err error
-var cpuprofile = flag.String("cpuprofile", "", "Destination file for CPU Profile")
-var imgPath = flag.String("image", "", "Absolute Path to image")
-var x = flag.Int("x", 0, "Offset of posted image from left border")
-var y = flag.Int("y", 0, "Offset of posted image from top border")
-var connections = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
-var address = flag.String("host", "127.0.0.1:1337", "Server address")
-var shuffle = flag.Bool("shuffle", false, "pixel send ordering")
-var fetchImgPath = flag.String("fetch-image", "", "path to save the fetched pixel state to")
-var ránAddr = flag.String("rán", "", "enable rpc server to distribute jobs, listening on the given address/port")
-var hevringAddr = flag.String("hevring", "", "connect to rán rpc server at given address")
+var (
+	imgPath      = flag.String("image", "", "Filepath of an image to flut")
+	ránAddr      = flag.String("rán", "", "Start RPC server to distribute jobs, listening on the given address/port")
+	hevringAddr  = flag.String("hevring", "", "Connect to PRC server at given address/port")
+	address      = flag.String("host", ":1234", "Target server address")
+	connections  = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
+	x            = flag.Int("x", 0, "Offset of posted image from left border")
+	y            = flag.Int("y", 0, "Offset of posted image from top border")
+	fetchImgPath = flag.String("fetch", "", "Enable fetching the screen area to the given local file, updating it each second")
+	cpuprofile   = flag.String("cpuprofile", "", "Destination file for CPU Profile")
+)
 
 func main() {
 	flag.Parse()
-
-	// Start cpu profiling if wanted
+	task := runWithExitHandler(taskFromFlags)
 	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
-	// :cleanExit setup
-	//   stop chan is closed at end of main process, telling async tasks to stop.
-	//   wg waits until async tasks gracefully stopped
-	wg := sync.WaitGroup{}
-	stopChan := make(chan bool)
-	interruptChan := make(chan os.Signal)
-	signal.Notify(interruptChan, os.Interrupt)
-
-	if *imgPath != "" {
-		offset := image.Pt(*x, *y)
-		imgTmp, err := render.ReadImage(*imgPath)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		img := render.ImgToNRGBA(imgTmp)
-
-		// check connectivity by opening one test connection
-		conn, err := net.Dial("tcp", *address)
-		if err != nil {
-			log.Fatal(err)
-		}
-		conn.Close()
-
-		if *ránAddr != "" {
-			// run RPC server, tasking clients to flut
-			wg.Add(1)
-			r := rpc.SummonRán(*ránAddr, stopChan, &wg)
-			// TODO: startup without a task, but init params
-			r.SetTask(img, offset, *address, *connections)
-
-		} else {
-			// fetch server state and save to file
-			// @incomplete: make this available also when not fluting?
-			if *fetchImgPath != "" {
-				fetchedImg := pixelflut.FetchImage(img.Bounds().Add(offset), *address, 1, stopChan)
-				*connections -= 1
-				defer render.WriteImage(*fetchImgPath, fetchedImg)
-			}
-
-			// local 🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
-			wg.Add(1)
-			go pixelflut.Flut(img, offset, *shuffle, false, false, *address, *connections, stopChan, &wg)
-		}
-
-	} else if *hevringAddr != "" {
-		// connect to RPC server and execute their tasks
-		rpc.ConnectHevring(*hevringAddr)
-
+		runWithProfiler(*cpuprofile, task)
 	} else {
-		log.Fatal("must specify -image or -hevring")
+		task()
+	}
+}
+
+func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
+	rán := *ránAddr
+	hev := *hevringAddr
+
+	startServer := rán != "" || (hev == "" && *imgPath != "")
+	startClient := hev != "" || (rán == "" && *imgPath != "")
+	fetchImg := *fetchImgPath != ""
+
+	if !(startServer || startClient || fetchImg) {
+		fmt.Println("Error: At least one of the following flags is needed:\n	-image -rán -hevring\n")
+		flag.Usage()
+		os.Exit(1)
 	}
 
-	// :cleanExit logic:
-	//   notify all async tasks to stop on interrupt
-	//   then wait for clean shutdown of all tasks before exiting
-	//   TODO: make this available to all invocation types
-	select {
-	case <-interruptChan:
+	if startServer {
+		if rán == "" {
+			rán = ":5555"
+		}
+		r := rpc.SummonRán(rán, stop, wg)
+
+		var img *image.NRGBA
+		if *imgPath != "" {
+			imgTmp, err := render.ReadImage(*imgPath)
+			if err != nil {
+				log.Fatal(err)
+			}
+			img = render.ImgToNRGBA(imgTmp)
+		}
+
+		r.SetTask(img, image.Pt(*x, *y), *address, *connections)
 	}
-	close(stopChan)
-	wg.Wait()
+
+	if startClient {
+		if hev == "" {
+			hev = ":5555"
+		}
+		rpc.ConnectHevring(hev, stop, wg)
+	}
+
+	if fetchImg {
+		canvasToFile(*fetchImgPath, *address, time.Second, stop, wg)
+	}
+}
+
+func canvasToFile(filepath, server string, interval time.Duration, stop chan bool, wg *sync.WaitGroup) {
+	// async fetch the image
+	fetchedImg := pixelflut.FetchImage(nil, server, 1, stop)
+
+	// write it in a fixed interval
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		for loop := true; loop; {
+			select {
+			case <-stop:
+				loop = false
+			case <-time.Tick(interval):
+			}
+			render.WriteImage(filepath, fetchedImg)
+		}
+	}()
+}
+
+// Takes a non-blocking function, and provides it an interface for graceful shutdown:
+// stop chan is closed if the routine should be stopped. before quitting, wg is awaited.
+func runWithExitHandler(task func(stop chan bool, wg *sync.WaitGroup)) func() {
+	return func() {
+		wg := sync.WaitGroup{}
+		stopChan := make(chan bool)
+		interruptChan := make(chan os.Signal)
+		signal.Notify(interruptChan, os.Interrupt)
+
+		task(stopChan, &wg)
+
+		// block until we get an interrupt, or somebody says we need to quit (by closing stopChan)
+		select {
+		case <-interruptChan:
+		case <-stopChan:
+			stopChan = nil
+		}
+
+		if stopChan != nil {
+			// notify all async tasks to stop on interrupt, if channel wasn't closed already
+			close(stopChan)
+		}
+
+		// then wait for clean shutdown of all tasks before exiting
+		wg.Wait()
+	}
+}
+
+func runWithProfiler(outfile string, task func()) {
+	f, err := os.Create(outfile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+	task()
 }

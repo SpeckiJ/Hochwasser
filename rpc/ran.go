@@ -93,7 +93,7 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 	}()
 
 	go RunREPL(r)
-	go r.killClients(stopChan, wg)
+	go r.handleExit(stopChan, wg)
 
 	return r
 }
@@ -129,13 +129,14 @@ func (r *Rán) stopTask() {
 	}
 }
 
-func (r *Rán) killClients(stopChan <-chan bool, wg *sync.WaitGroup) {
+func (r *Rán) handleExit(stopChan <-chan bool, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
 	<-stopChan
 	for _, c := range r.clients {
 		ack := FlutAck{}
 		c.Call("Hevring.Die", 0, &ack) // @speed: async
 	}
-	wg.Done()
 }
 
 // SetTask assigns a FlutTask to Rán, distributing it to all clients
