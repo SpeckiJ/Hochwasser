@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/SpeckiJ/Hochwasser/render"
 )
@@ -52,6 +53,8 @@ func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset 
 		if len(messages) > i {
 			msg = messages[i]
 		}
+
+		time.Sleep(66 * time.Millisecond) // avoid crashing the server
 
 		go bombAddress(msg, address, maxOffsetX, maxOffsetY, stop, &bombWg)
 	}
