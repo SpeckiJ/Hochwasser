@@ -1,13 +1,21 @@
 <h1 align="center" >🌊🌊🌊 Hochwasser 🌊🤽🌊</h1>
 <p align="center"><img src="benchmarks/hochwasser_shuffle_vs_ordered.gif"/></p>
 
-Highly efficient client for [Pixelflut]:
-Faster than [sturmflut]! (In some benchmarks at least)
+Highly efficient, distributed [Pixelflut] client.
 
-Can currently only send a single picture though.
+- Can send static images, text, generated patterns (animations upcoming)
+- REPL enables fast iterations
+- CnC server + client architecture (canalso runs in a single process)
+- Faster than [sturmflut]! (in some benchmarks at least)
+- No dependencies (pixelflut apparently was considered a primary use case in the design of golang's stdlib 👍)
 
 [pixelflut]: https://cccgoe.de/wiki/Pixelflut
 [sturmflut]: https://github.com/TobleMiner/sturmflut
+
+## build / install
+1. have a `go` installation >= 1.12
+2. `go get github.com/SpeckiJ/Hochwasser`
+3. `go install github.com/SpeckiJ/Hochwasser`
 
 ## benchmark
 The following benchmark was run on a max-spec X280 against version [d4c574b].
@@ -18,8 +26,8 @@ to be CPU limited, as turbo-boost doesn't kick in.
 To reproduce, run the following commands in separate shells:
 
 ```sh
-iperf -s -p 1337
-go run main.go -image benchmark/test.png -connection 10
+iperf -s -p 1234
+go run main.go -image benchmark/test.png -connections 10
 ```
 
 ![screenshot: 55 Gbps of hochwasser](benchmarks/benchmark_x280.png)
