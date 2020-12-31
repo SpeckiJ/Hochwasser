@@ -7,62 +7,7 @@ import (
 	"image/color"
 	"log"
 	"net"
-	"sync"
-	"time"
-
-	"github.com/SpeckiJ/Hochwasser/render"
 )
-
-// Flut asynchronously sends the given image to pixelflut server at `address`
-//   using `conns` connections. Pixels are sent column wise, unless `shuffle`
-//   is set. Stops when stop is closed.
-// @cleanup: use FlutTask{} as arg
-func Flut(img *image.NRGBA, position image.Point, shuffle, rgbsplit, randoffset bool, address string, conns int, stop chan bool, wg *sync.WaitGroup) {
-	var cmds commands
-	if rgbsplit {
-		// do a RGB split of white
-		imgmod := render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y-10))...)
-		imgmod = render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0xff, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X+10, position.Y))...)
-		imgmod = render.ImgColorFilter(img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0, 0xff, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(position.X-10, position.Y+10))...)
-		cmds = append(cmds, commandsFromImage(img, position)...)
-	} else {
-		cmds = commandsFromImage(img, position)
-	}
-
-	if shuffle {
-		cmds.Shuffle()
-	}
-
-	var messages [][]byte
-	var maxOffsetX, maxOffsetY int
-	if randoffset {
-		maxX, maxY := CanvasSize(address)
-		maxOffsetX = maxX - img.Bounds().Canon().Dx()
-		maxOffsetY = maxY - img.Bounds().Canon().Dy()
-		messages = cmds.Chunk(1) // each connection should send the full img
-	} else {
-		messages = cmds.Chunk(conns)
-	}
-
-	bombWg := sync.WaitGroup{}
-	for i := 0; i < conns; i++ {
-		msg := messages[0]
-		if len(messages) > i {
-			msg = messages[i]
-		}
-
-		time.Sleep(66 * time.Millisecond) // avoid crashing the server
-
-		go bombAddress(msg, address, maxOffsetX, maxOffsetY, stop, &bombWg)
-	}
-	bombWg.Wait()
-	if wg != nil {
-		wg.Done()
-	}
-}
 
 // CanvasSize returns the size of the canvas as returned by the server
 func CanvasSize(address string) (int, int) {

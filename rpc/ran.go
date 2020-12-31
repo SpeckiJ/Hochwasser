@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"fmt"
-	"image"
 	"log"
 	"net"
 	"net/rpc"
@@ -16,7 +15,7 @@ import (
 // Implements `Fluter`
 type Rán struct {
 	clients []*rpc.Client
-	task    FlutTask
+	task    pixelflut.FlutTask
 	metrics pixelflut.Performance
 }
 
@@ -44,7 +43,7 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 			fmt.Printf("[rán] client connected (%v). current clients: %v\n",
 				conn.RemoteAddr(), len(r.clients))
 
-			if (r.task != FlutTask{}) {
+			if r.task.IsFlutable() {
 				ack := FlutAck{}
 				err = client.Call("Hevring.Flut", r.task, &ack)
 				if err != nil || !ack.Ok {
@@ -98,18 +97,15 @@ func SummonRán(address string, stopChan chan bool, wg *sync.WaitGroup) *Rán {
 	return r
 }
 
-func (r *Rán) getTask() FlutTask { return r.task }
+func (r *Rán) getTask() pixelflut.FlutTask { return r.task }
 
 func (r *Rán) toggleMetrics() {
 	r.metrics.Enabled = !r.metrics.Enabled
 }
 
-func (r *Rán) applyTask(t FlutTask) {
-	if (t == FlutTask{}) { // @robustness: FlutTask should provide .IsValid()
-		return
-	}
+func (r *Rán) applyTask(t pixelflut.FlutTask) {
 	r.task = t
-	if t.Paused {
+	if !t.IsFlutable() {
 		return
 	}
 	for i, c := range r.clients {
@@ -139,17 +135,10 @@ func (r *Rán) handleExit(stopChan <-chan bool, wg *sync.WaitGroup) {
 	}
 }
 
-// SetTask assigns a FlutTask to Rán, distributing it to all clients
-func (r *Rán) SetTask(img *image.NRGBA, offset image.Point, address string, maxConns int) {
+// SetTask assigns a pixelflut.FlutTask to Rán, distributing it to all clients
+func (r *Rán) SetTask(t pixelflut.FlutTask) {
 	// @incomplete: smart task creation:
 	//   fetch server state & sample foreign activity in image regions. assign
 	//   subregions to clients (per connection), considering their bandwidth.
-
-	r.applyTask(FlutTask{
-		Address:  address,
-		MaxConns: maxConns,
-		Img:      img,
-		Offset:   offset,
-		Shuffle:  true,
-	})
+	r.applyTask(t)
 }
