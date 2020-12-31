@@ -1,12 +1,17 @@
 <h1 align="center" >🌊🌊🌊 Hochwasser 🌊🤽🌊</h1>
 <p align="center"><img src="benchmarks/hochwasser_shuffle_vs_ordered.gif"/></p>
+<p align="center"><img src="benchmarks/nmzs.gif"/></p>
 
 Highly efficient, distributed [Pixelflut] client.
 
+> Hochwasser brings back the */fun/* in social DDoSing!
+>
+> No more micro-ddosing: Get Hochwasser now and experience highs never seen before!111!
+
 - Can send static images, text, generated patterns (animations upcoming)
 - REPL enables fast iterations
-- CnC server + client architecture (canalso runs in a single process)
-- Faster than [sturmflut]! (in some benchmarks at least)
+- CnC server + client architecture (it's webscale!) (can also run in a single process)
+- Faster than [sturmflut] (in some benchmarks at least)
 - No dependencies (pixelflut apparently was considered a primary use case in the design of golang's stdlib 👍)
 
 [pixelflut]: https://cccgoe.de/wiki/Pixelflut
@@ -48,3 +53,5 @@ go run main.go -image benchmark/test.png -connections 10
 
 ## future ideas
 For future ideas check [IDEAS](https://github.com/SpeckiJ/Hochwasser/blob/master/IDEAS.md)
+
+<p align="center"><img src="benchmarks/hochwasser_vs_sturmflut.gif"/></p>
