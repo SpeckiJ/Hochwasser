@@ -63,6 +63,25 @@ func ImgColorFilter(img *image.NRGBA, from, to color.NRGBA) *image.NRGBA {
 	return r
 }
 
+// ImgRGBSplit returns three images containing the RGB components, optionally shifted by some offset
+func ImgRGBSplit(img *image.NRGBA, shift int) (*image.NRGBA, *image.NRGBA, *image.NRGBA) {
+	bounds := img.Bounds().Inset(-shift)
+	r := image.NewNRGBA(bounds)
+	g := image.NewNRGBA(bounds)
+	b := image.NewNRGBA(bounds)
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			c := img.At(x, y).(color.NRGBA)
+			if c.A != 0 {
+				r.Set(x-shift, y-shift, color.NRGBA{R: c.R, A: c.A / 3})
+				g.Set(x+shift, y, color.NRGBA{G: c.G, A: c.A / 3})
+				b.Set(x-shift, y+shift, color.NRGBA{B: c.B, A: c.A / 3})
+			}
+		}
+	}
+	return r, g, b
+}
+
 func ScaleImage(img image.Image, factor int) (scaled *image.NRGBA) {
 	b := img.Bounds()
 	scaledBounds := image.Rect(0, 0, b.Max.X*factor, b.Max.Y*factor)

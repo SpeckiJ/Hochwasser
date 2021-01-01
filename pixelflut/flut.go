@@ -3,7 +3,6 @@ package pixelflut
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"sync"
 	"time"
 
@@ -115,14 +114,15 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 
 func generateCommands(t FlutTask) (cmds commands) {
 	if t.RGBSplit {
-		white := color.NRGBA{0xff, 0xff, 0xff, 0xff}
-		imgmod := render.ImgColorFilter(t.Img, white, color.NRGBA{0xff, 0, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(-10, -10)))...)
-		imgmod = render.ImgColorFilter(t.Img, white, color.NRGBA{0, 0xff, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(10, 0)))...)
-		imgmod = render.ImgColorFilter(t.Img, white, color.NRGBA{0, 0, 0xff, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(-10, 10)))...)
+		r, g, b := render.ImgRGBSplit(t.Img, 10)
+		cmds = append(cmds, commandsFromImage(r, t.RenderOrder, t.Offset)...)
+		cmds = append(cmds, commandsFromImage(g, t.RenderOrder, t.Offset)...)
+		cmds = append(cmds, commandsFromImage(b, t.RenderOrder, t.Offset)...)
+		if t.RenderOrder == Shuffle {
+			cmds.Shuffle()
+		}
+	} else {
+		cmds = append(cmds, commandsFromImage(t.Img, t.RenderOrder, t.Offset)...)
 	}
-	cmds = append(cmds, commandsFromImage(t.Img, t.RenderOrder, t.Offset)...)
 	return
 }
