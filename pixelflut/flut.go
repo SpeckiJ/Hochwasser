@@ -18,13 +18,13 @@ type FlutTask struct {
 
 // FlutTaskOpts specifies parameters of the flut
 type FlutTaskOpts struct {
-	Address    string
-	MaxConns   int
-	Offset     image.Point
-	Paused     bool
-	Shuffle    bool
-	RGBSplit   bool
-	RandOffset bool
+	Address     string
+	MaxConns    int
+	Offset      image.Point
+	Paused      bool
+	RGBSplit    bool
+	RandOffset  bool
+	RenderOrder RenderOrder
 }
 
 // FlutTaskData contains the actual pixeldata to flut, separated because of size
@@ -36,8 +36,8 @@ func (t FlutTask) String() string {
 		img = t.Img.Bounds().Size().String()
 	}
 	return fmt.Sprintf(
-		"	%d conns @ %s\n	img %v	offset %v\n	shuffle %v	rgbsplit %v	randoffset %v	paused %v",
-		t.MaxConns, t.Address, img, t.Offset, t.Shuffle, t.RGBSplit, t.RandOffset, t.Paused,
+		"	%d conns @ %s\n	img %v	offset %v\n	order %s	rgbsplit %v	randoffset %v	paused %v",
+		t.MaxConns, t.Address, img, t.Offset, t.RenderOrder, t.RGBSplit, t.RandOffset, t.Paused,
 	)
 }
 
@@ -45,6 +45,34 @@ func (t FlutTask) String() string {
 func (t FlutTask) IsFlutable() bool {
 	return t.Img != nil && t.MaxConns > 0 && t.Address != "" && !t.Paused
 }
+
+type RenderOrder uint8
+
+func (t RenderOrder) String() string   { return []string{"→", "↓", "←", "↑", "random"}[t] }
+func (t RenderOrder) IsVertical() bool { return t&0b01 != 0 }
+func (t RenderOrder) IsReverse() bool  { return t&0b10 != 0 }
+func NewOrder(v string) RenderOrder {
+	switch v {
+	case "ltr", "l", "→":
+		return LeftToRight
+	case "rtl", "r", "←":
+		return RightToLeft
+	case "ttb", "t", "↓":
+		return TopToBottom
+	case "btt", "b", "↑":
+		return BottomToTop
+	default:
+		return Shuffle
+	}
+}
+
+const (
+	LeftToRight = 0b000
+	TopToBottom = 0b001
+	RightToLeft = 0b010
+	BottomToTop = 0b011
+	Shuffle     = 0b100
+)
 
 // Flut asynchronously sends the given image to pixelflut server at `address`
 //   using `conns` connections. Pixels are sent column wise, unless `shuffle`
@@ -55,23 +83,7 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 		return // @robustness: actually return an error here?
 	}
 
-	var cmds commands
-	if t.RGBSplit {
-		// do a RGB split of white
-		imgmod := render.ImgColorFilter(t.Img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0xff, 0, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(t.Offset.X-10, t.Offset.Y-10))...)
-		imgmod = render.ImgColorFilter(t.Img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0xff, 0, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(t.Offset.X+10, t.Offset.Y))...)
-		imgmod = render.ImgColorFilter(t.Img, color.NRGBA{0xff, 0xff, 0xff, 0xff}, color.NRGBA{0, 0, 0xff, 0xff})
-		cmds = append(cmds, commandsFromImage(imgmod, image.Pt(t.Offset.X-10, t.Offset.Y+10))...)
-		cmds = append(cmds, commandsFromImage(t.Img, t.Offset)...)
-	} else {
-		cmds = commandsFromImage(t.Img, t.Offset)
-	}
-
-	if t.Shuffle {
-		cmds.Shuffle()
-	}
+	cmds := generateCommands(t)
 
 	var messages [][]byte
 	var maxOffsetX, maxOffsetY int
@@ -91,7 +103,7 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 			msg = messages[i]
 		}
 
-		time.Sleep(66 * time.Millisecond) // avoid crashing the server
+		time.Sleep(50 * time.Millisecond) // avoid crashing the server
 
 		go bombAddress(msg, t.Address, maxOffsetX, maxOffsetY, stop, &bombWg)
 	}
@@ -99,4 +111,18 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 	if wg != nil {
 		wg.Done()
 	}
+}
+
+func generateCommands(t FlutTask) (cmds commands) {
+	if t.RGBSplit {
+		white := color.NRGBA{0xff, 0xff, 0xff, 0xff}
+		imgmod := render.ImgColorFilter(t.Img, white, color.NRGBA{0xff, 0, 0, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(-10, -10)))...)
+		imgmod = render.ImgColorFilter(t.Img, white, color.NRGBA{0, 0xff, 0, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(10, 0)))...)
+		imgmod = render.ImgColorFilter(t.Img, white, color.NRGBA{0, 0, 0xff, 0xff})
+		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(-10, 10)))...)
+	}
+	cmds = append(cmds, commandsFromImage(t.Img, t.RenderOrder, t.Offset)...)
+	return
 }

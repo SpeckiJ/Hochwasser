@@ -25,6 +25,7 @@ var (
 	connections  = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
 	x            = flag.Int("x", 0, "Offset of posted image from left border")
 	y            = flag.Int("y", 0, "Offset of posted image from top border")
+	order        = flag.String("order", "rtl", "Draw order (shuffle, ltr, rtl, ttb, btt)")
 	fetchImgPath = flag.String("fetch", "", "Enable fetching the screen area to the given local file, updating it each second")
 	cpuprofile   = flag.String("cpuprofile", "", "Destination file for CPU Profile")
 )
@@ -72,10 +73,10 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 
 		r.SetTask(pixelflut.FlutTask{
 			FlutTaskOpts: pixelflut.FlutTaskOpts{
-				Address:  *address,
-				MaxConns: *connections,
-				Offset:   image.Pt(*x, *y),
-				Shuffle:  true,
+				Address:     *address,
+				MaxConns:    *connections,
+				Offset:      image.Pt(*x, *y),
+				RenderOrder: pixelflut.NewOrder(*order),
 			},
 			Img: img,
 		})

@@ -38,15 +38,35 @@ func OffsetCmd(x, y int) []byte {
 }
 
 // CommandsFromImage converts an image to the respective pixelflut commands
-func commandsFromImage(img *image.NRGBA, offset image.Point) (cmds commands) {
+func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) (cmds commands) {
 	b := img.Bounds()
 	cmds = make([][]byte, b.Size().X*b.Size().Y)
 	numCmds := 0
 
-	for x := b.Min.X; x < b.Max.X; x++ {
-		for y := b.Min.Y; y < b.Max.Y; y++ {
+	max1 := b.Max.X
+	max2 := b.Max.Y
+	min1 := b.Min.X
+	min2 := b.Min.Y
+	dir := 1
+	if order.IsVertical() {
+		max1, max2 = max2, max1
+		min1, min2 = min2, min1
+	}
+	if order.IsReverse() {
+		min1, max1 = max1, min1
+		min2, max2 = max2, min2
+		dir *= -1
+	}
+
+	for i1 := min1; i1 != max1; i1 += dir {
+		for i2 := min2; i2 != max2; i2 += dir {
+			x := i1
+			y := i2
+			if order.IsVertical() {
+				x, y = y, x
+			}
+
 			c := img.At(x, y).(color.NRGBA)
-			// ignore transparent pixels
 			if c.A == 0 {
 				continue
 			}
@@ -64,7 +84,13 @@ func commandsFromImage(img *image.NRGBA, offset image.Point) (cmds commands) {
 		}
 	}
 
-	return cmds[:numCmds]
+	cmds = cmds[:numCmds]
+
+	if order == Shuffle {
+		cmds.Shuffle()
+	}
+
+	return
 }
 
 func cmdsFetchImage(bounds image.Rectangle) (cmds commands) {

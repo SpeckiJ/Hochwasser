@@ -121,6 +121,7 @@ func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, sto
 		if err == nil {
 			break // we're supposed to exit
 		}
+		fmt.Printf("[net] error: %s\n", err)
 	}
 }
 
