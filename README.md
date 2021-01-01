@@ -2,13 +2,9 @@
 <p align="center"><img src="benchmarks/hochwasser_shuffle_vs_ordered.gif"/></p>
 <p align="center"><img src="benchmarks/nmzs.gif"/></p>
 
-Highly efficient, distributed [Pixelflut] client.
+Highly efficient distributed [Pixelflut] client.
 
-> Hochwasser brings back the */fun/* in social DDoSing!
->
-> No more micro-ddosing: Get Hochwasser now and experience highs never seen before!111!
-
-- Can send static images, text, generated patterns (animations upcoming)
+- Sends static images, text, generated patterns (animations upcoming)
 - REPL enables fast iterations
 - CnC server + client architecture (it's webscale!) (can also run in a single process)
 - Faster than [sturmflut] (in some benchmarks at least)
@@ -17,10 +13,31 @@ Highly efficient, distributed [Pixelflut] client.
 [pixelflut]: https://cccgoe.de/wiki/Pixelflut
 [sturmflut]: https://github.com/TobleMiner/sturmflut
 
+### testimonials
+> Pixelflut endlich *durchgespielt*.
+>
+>   - Steffen Cybert
+
+> N-no more micro-ddosing: bring on ssome Hochwasser and exppperience colors never seen befffore!1!
+>
+>   - Morty
+
+> Hochwasser brings back the D in *social DDoSing*! Man, I forgot which one..
+>
+>   - Doc Brown
+
 ## build / install
 1. have a `go` installation >= 1.12
 2. `go get github.com/SpeckiJ/Hochwasser`
 3. `go install github.com/SpeckiJ/Hochwasser`
+
+> The help texts may be lacking, it's recommended to read `rpc/repl.go`.
+
+## hacking
+Look at the `github.com/SpeckiJ/Hochwasser/pixelflut` subpackage, it contains the performance sensitive core.
+
+The code is getting somewhat ~~bloated~~enterprise-ready, so if you want to quickly render a fun thing,
+it may be easier to just build a separate executable on top of `pixelflut.Flut()`, than to extend Hochwasser.
 
 ## benchmark
 The following benchmark was run on a max-spec X280 against version [d4c574b].
@@ -52,6 +69,6 @@ go run main.go -image benchmark/test.png -connections 10
 [iperf]: https://iperf.fr/
 
 ## future ideas
-For future ideas check [IDEAS](https://github.com/SpeckiJ/Hochwasser/blob/master/IDEAS.md)
+see [IDEAS](https://github.com/SpeckiJ/Hochwasser/blob/master/IDEAS.md).
 
 <p align="center"><img src="benchmarks/hochwasser_vs_sturmflut.gif"/></p>

@@ -1,11 +1,16 @@
 # feature ideas
-- pluggable cli: commands for image, text, shader rendering
+- more draw modes
+  - patterns
+    - https://github.com/MarcelMue/konstrukt ?
+  - image scaling
+  - snake
+  - sheep.exe
+  - offset rand: random size/color
+- proper public api for the fast network handling
+  - `Fluter` abstraction, implementing `Reader` to update commands? ringbuffer?
 - support animations / frame concept
-- visualization client
-- CnC: server distributes jobs to connected clients
-  - or fully P2P using [2D CAN / Z-ordercurve adressing](https://github.com/noerw/geo-dht) (p2p implementation needed)
-- webassembly port?
-- use userland tcp stack (e.g. https://github.com/google/netstack or even https://github.com/luigirizzo/netmap)
+- support (stackable) effects
+- make job distribution fully P2P using [2D CAN / Z-ordercurve adressing](https://git.nroo.de/norwin/geo-dht)
 
 # performance considerations
 - server limitations: rendering is bottleneck. maybe artificial limitations (commands per draw, connections per IP, queue)
@@ -13,8 +18,8 @@
   - sync sending with draw frequency (?)
   - use virtual subnets for more IPs (ipv6?) (?)
 - client limitations: PCI bus is bottleneck? depends on HW I guess
-  - precompute everything
   - distribute across cores for max PCI bus saturation (?)
+  - use userland tcp stack (e.g. https://github.com/google/netstack or even https://github.com/luigirizzo/netmap)
 - network limitations: packet size, ACKs, congestion
   - treat benchmarks on `loopback` with care, it has no packet size limitation. real world interfaces will enforce a max size of 1514 bytes [1]
   - avoid packet split if >1514B (?)
@@ -22,25 +27,4 @@
   - https://stackoverflow.com/questions/5832308/linux-loopback-performance-with-tcp-nodelay-enabled
 - cognitive limitations: draw order
   - randomized pixel order should give a better idea of the image with equal dominance (?)
-
-# concept: CLI for distributed hochwasser v2
-
-> pixelflut endlich *durchgespielt*
-
-```
-hochwasser     --server
-    provide    [type] [input] --effect --offset --scale --port --nosend
-    subscribe  --connections --shuffle --diffmode
-    view       --fullscreen
-```
-
-- CLI via `github.com/spf13/cobra`
-  - `--server` refers to pixelflut server or hochwasser jobprovider, depending on mode
-
-- jobprovider has different input types (`image`, `text`, `shader`?), each is parsed into an `image.GIF`
-  - jobprovider also sends image itself?
-
-- when subscriber connects to jobprovider, `GIF` is split up, and (re)distributed to all subscribers
-  - protocol: (address,offset,imgdata) serialized with `gob`?
-
-- viewer fetches into framebuffer, renders via opengl?
+  - use an energy function like in seam carving to prioritize regions?
