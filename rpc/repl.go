@@ -66,7 +66,7 @@ func RunREPL(f Fluter) {
 			case "start":
 				t.Paused = false
 
-			case "offset":
+			case "offset", "of":
 				if len(args) == 1 && args[0] == "rand" {
 					t.RandOffset = true
 					t.Offset = image.Point{}
@@ -79,20 +79,22 @@ func RunREPL(f Fluter) {
 					}
 				}
 
-			case "conns":
+			case "connections", "c":
 				if len(args) == 1 {
 					if conns, err := strconv.Atoi(args[0]); err == nil {
 						t.MaxConns = conns
 					}
 				}
 
-			case "addr":
+			case "address", "a":
 				if len(args) == 1 {
 					t.Address = args[0]
 				}
 
-			case "shuffle":
-				t.Shuffle = !t.Shuffle
+			case "order", "o":
+				if len(args) == 1 {
+					t.RenderOrder = pixelflut.NewOrder(args[0])
+				}
 
 			case "rgbsplit":
 				t.RGBSplit = !t.RGBSplit
@@ -118,7 +120,7 @@ func RunREPL(f Fluter) {
 					t.Img = render.RenderText(input, textSize, textCol, bgCol)
 				}
 
-			case "img":
+			case "img", "i":
 				if len(args) > 0 {
 					path := strings.Join(args, " ")
 					if img, err := render.ReadImage(path); err != nil {
@@ -151,17 +153,17 @@ func printHelp() {
 	fmt.Println(`available commands:
 	start                                start fluting
 	stop                                 pause fluting
-	conns <n>                            set number of connections per client
-	addr <host>:<port>                   set target server
+	c <n>                                set number of connections per client
+	a <host>:<port>                      set target server
 	offset <x> <y>                       set top-left offset
 	offset rand                          random offset for each draw
 	metrics                              toggle bandwidth reporting (may cost some performance)
 
-	img <filepath>                       set image
+	i <filepath>                         set image
 	txt <scale> <color <bgcolor> <txt>   send text
 	txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
 	rgbsplit                             toggle RGB split effect
-	shuffle                              toggle between column-wise & randomized draw order`)
+	o                                    set order (l,r,t,b,shuffle)`)
 }
 
 // try to parse as hex-encoded RGB color,
