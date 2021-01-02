@@ -133,6 +133,7 @@ func (r *Rán) handleExit(stopChan <-chan bool, wg *sync.WaitGroup) {
 		ack := FlutAck{}
 		c.Call("Hevring.Die", 0, &ack) // @speed: async
 	}
+	// FIXME: why the fuck are we quitting before this loop is complete?
 }
 
 // SetTask assigns a pixelflut.FlutTask to Rán, distributing it to all clients

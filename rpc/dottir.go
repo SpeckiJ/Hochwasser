@@ -27,9 +27,8 @@ func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) {
 	h.wg = wg
 	h.wg.Add(1)
 	go func() {
-		select {
-		case <-h.quit:
-		}
+		<-h.quit
+		h.quit = nil
 		if h.taskQuit != nil {
 			close(h.taskQuit)
 			h.taskQuit = nil
@@ -93,7 +92,9 @@ func (h *Hevring) Die(x int, reply *FlutAck) error {
 	go func() {
 		fmt.Println("[hevring] Rán disconnected, stopping")
 		time.Sleep(100 * time.Millisecond)
-		close(h.quit)
+		if h.quit != nil {
+			close(h.quit)
+		}
 	}()
 	reply.Ok = true
 	return nil
