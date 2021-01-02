@@ -65,9 +65,8 @@ func readPixels(target *image.NRGBA, conn net.Conn, stop chan bool) {
 				log.Fatal(err)
 			}
 
-			// parse response ("PX <x> <y> <rrggbbaa>\n")
-			// NOTE: shoreline sends alpha, pixelnuke does not!
-			colorStart := len(res) - 9
+			// parse response ("PX <x> <y> <rrggbb>")
+			colorStart := len(res) - 7
 			x, y := parseXY(res[3:colorStart])
 			hex.Decode(col, res[colorStart:len(res)-1])
 
