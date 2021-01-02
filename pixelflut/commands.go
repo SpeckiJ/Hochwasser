@@ -3,7 +3,6 @@ package pixelflut
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"math/rand"
 )
 
@@ -66,7 +65,7 @@ func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) 
 				x, y = y, x
 			}
 
-			c := img.At(x, y).(color.NRGBA)
+			c := img.NRGBAAt(x, y)
 			if c.A == 0 {
 				continue
 			}
@@ -79,7 +78,7 @@ func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) 
 				cmd = fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
 					x+offset.X, y+offset.Y, c.R, c.G, c.B)
 			}
-			cmds[numCmds] = []byte(cmd)
+			cmds[numCmds] = []byte(cmd) // @speed: conversion to []byte costs an extra allocation..
 			numCmds++
 		}
 	}

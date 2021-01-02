@@ -92,8 +92,8 @@ func initPerfReporter() *Performance {
 	return r
 }
 
-// bombAddress writes the given message via plain TCP to the given address,
-// as fast as possible, until stop is closed. retries with exponential backoff on network errors.
+// bombAddress opens a TCP connection to `address`, and writes `message` repeatedly, until `stop` is closed.
+// It retries with exponential backoff on network errors.
 func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, stop chan bool, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
@@ -125,6 +125,8 @@ func bombAddress(message []byte, address string, maxOffsetX, maxOffsetY int, sto
 	}
 }
 
+// bombConn writes the given message to the given connection in a tight loop, until `stop` is closed.
+// Does no transformation on the given message, so make sure packet splitting / nagle works.
 func bombConn(message []byte, maxOffsetX, maxOffsetY int, conn net.Conn, stop chan bool) error {
 	PerformanceReporter.connsReporter <- 1
 	defer func() { PerformanceReporter.connsReporter <- -1 }()

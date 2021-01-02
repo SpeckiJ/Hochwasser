@@ -17,14 +17,12 @@ func pt(p fixed.Point26_6) image.Point {
 }
 
 func RenderText(text string, scale int, texture, bgTex image.Image) *image.NRGBA {
-	// @incomplete: draw with texture via Drawer.Src
 	face := basicfont.Face7x13
 	stringBounds, _ := font.BoundString(face, text)
 
 	b := image.Rectangle{pt(stringBounds.Min), pt(stringBounds.Max)}
 	img := image.NewNRGBA(b)
 
-	// fill with black bg
 	if bgTex != nil {
 		draw.Draw(img, b, bgTex, image.Point{}, draw.Src)
 	}

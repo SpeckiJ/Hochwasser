@@ -22,7 +22,7 @@ type FlutTaskOpts struct {
 	MaxConns    int
 	Offset      image.Point
 	Paused      bool
-	RGBSplit    bool
+	RGBSplit    bool // @cleanup: replace with `FX: []Effect`
 	RandOffset  bool
 	RenderOrder RenderOrder
 }
@@ -74,10 +74,7 @@ const (
 	Shuffle     = 0b100
 )
 
-// Flut asynchronously sends the given image to pixelflut server at `address`
-//   using `conns` connections. Pixels are sent column wise, unless `shuffle`
-//   is set. Stops when stop is closed.
-// @cleanup: use FlutTask{} as arg
+// Flut asynchronously executes the given FlutTask, until `stop` is closed.
 func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 	if !t.IsFlutable() {
 		return // @robustness: actually return an error here?
