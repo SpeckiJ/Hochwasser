@@ -6,8 +6,11 @@ import (
 	"image"
 	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"sync"
 	"time"
@@ -27,15 +30,15 @@ var (
 	y            = flag.Int("y", 0, "Offset of posted image from top border")
 	order        = flag.String("order", "rtl", "Draw order (shuffle, ltr, rtl, ttb, btt)")
 	fetchImgPath = flag.String("fetch", "", "Enable fetching the screen area to the given local file, updating it each second")
-	cpuprofile   = flag.String("cpuprofile", "", "Destination file for CPU Profile")
+	profile      = flag.Bool("profile", false, "Enable profiling. See results with `go tool pprof cpu.prof mem.prof")
 )
 
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	task := runWithExitHandler(taskFromFlags)
-	if *cpuprofile != "" {
-		runWithProfiler(*cpuprofile, task)
+	if *profile {
+		runWithProfiler(task)
 	} else {
 		task()
 	}
@@ -139,13 +142,26 @@ func runWithExitHandler(task func(stop chan bool, wg *sync.WaitGroup)) func() {
 	}
 }
 
-func runWithProfiler(outfile string, task func()) {
-	f, err := os.Create(outfile)
+func runWithProfiler(task func()) {
+	f, err := os.Create("cpu.prof")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
+
+	go func() { http.ListenAndServe("localhost:6060", nil) }()
+
 	task()
+
+	f2, err := os.Create("mem.prof")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f2.Close()
+	runtime.GC()
+	if err := pprof.WriteHeapProfile(f2); err != nil {
+		log.Fatal(err)
+	}
 }
