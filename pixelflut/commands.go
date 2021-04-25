@@ -3,7 +3,9 @@ package pixelflut
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math/rand"
+	"strconv"
 )
 
 // Commands represent a list of messages to be sent to a pixelflut server.
@@ -69,16 +71,16 @@ func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) 
 			if c.A == 0 {
 				continue
 			}
-			var cmd string
-			if c.A != 255 {
-				cmd = fmt.Sprintf("PX %d %d %.2x%.2x%.2x%.2x\n",
-					x+offset.X, y+offset.Y, c.R, c.G, c.B, c.A)
-			} else {
-				// @speed: this sprintf call is quite slow..
-				cmd = fmt.Sprintf("PX %d %d %.2x%.2x%.2x\n",
-					x+offset.X, y+offset.Y, c.R, c.G, c.B)
-			}
-			cmds[numCmds] = []byte(cmd) // @speed: conversion to []byte costs an extra allocation..
+
+			var cmd []byte
+			cmd = append(cmd, []byte("PX ")...)
+			cmd = strconv.AppendUint(cmd, uint64(x+offset.X), 10)
+			cmd = append(cmd, ' ')
+			cmd = strconv.AppendUint(cmd, uint64(y+offset.Y), 10)
+			cmd = append(cmd, ' ')
+			appendColor(&cmd, c)
+			cmd = append(cmd, '\n')
+			cmds[numCmds] = cmd
 			numCmds++
 		}
 	}
@@ -90,6 +92,27 @@ func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) 
 	}
 
 	return
+}
+
+func appendColor(buf *[]byte, c color.NRGBA) {
+	var mask uint32 = 0xf0000000
+	// merge into uint32
+	var col = uint32(c.R)<<24 + uint32(c.G)<<16 + uint32(c.B)<<8 + uint32(c.A)
+	// if alpha is ff, drop it.
+	if 0xff&col == 0xff {
+		col = col >> 8
+		mask = mask >> 8
+	}
+	// add leading zeros if needed
+	for mask > 0xf {
+		if mask&col == 0 {
+			*buf = append(*buf, '0')
+		} else {
+			break
+		}
+		mask = mask >> 4
+	}
+	*buf = strconv.AppendUint(*buf, uint64(col), 16)
 }
 
 func cmdsFetchImage(bounds image.Rectangle) (cmds commands) {
