@@ -25,6 +25,18 @@ func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) *Hev
 	go rpc.ServeConn(conn)
 	fmt.Printf("[hevring] awaiting task from Rán\n")
 
+	// print performance
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if pixelflut.PerformanceReporter.Enabled {
+				fmt.Println(pixelflut.PerformanceReporter)
+			}
+		}
+	}()
+
+	// add listener to stop the task, if this hevring should stop
+	// (either because Rán told us so, or we received an interrupt)
 	h.quit = stop
 	h.wg = wg
 	h.wg.Add(1)
@@ -44,8 +56,8 @@ func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) *Hev
 type Hevring struct {
 	PreviewPath string
 	task        pixelflut.FlutTask
-	taskQuit    chan bool
-	quit        chan bool
+	taskQuit    chan bool // if closed, task is stopped.
+	quit        chan bool // if closed, kills this hevring
 	wg          *sync.WaitGroup
 }
 
