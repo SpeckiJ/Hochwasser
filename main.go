@@ -18,16 +18,17 @@ import (
 )
 
 var (
-	imgPath      = flag.String("image", "", "Filepath of an image to flut")
-	ránAddr      = flag.String("rán", "", "Start RPC server to distribute jobs, listening on the given address/port")
-	hevringAddr  = flag.String("hevring", "", "Connect to PRC server at given address/port")
-	address      = flag.String("host", ":1234", "Target server address")
-	connections  = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
-	x            = flag.Int("x", 0, "Offset of posted image from left border")
-	y            = flag.Int("y", 0, "Offset of posted image from top border")
-	order        = flag.String("order", "rtl", "Draw order (shuffle, ltr, rtl, ttb, btt)")
-	fetchImgPath = flag.String("fetch", "", "Enable fetching the screen area to the given local file, updating it each second")
-	cpuprofile   = flag.String("cpuprofile", "", "Destination file for CPU Profile")
+	imgPath        = flag.String("image", "", "Filepath of an image to flut")
+	ránAddr        = flag.String("rán", "", "Start RPC server to distribute jobs, listening on the given address/port")
+	hevringAddr    = flag.String("hevring", "", "Connect to RPC server at given address/port")
+	address        = flag.String("host", ":1234", "Target server address")
+	connections    = flag.Int("connections", 4, "Number of simultaneous connections. Each connection posts a subimage")
+	x              = flag.Int("x", 0, "Offset of posted image from left border")
+	y              = flag.Int("y", 0, "Offset of posted image from top border")
+	order          = flag.String("order", "rtl", "Draw order (shuffle, ltr, rtl, ttb, btt)")
+	fetchImgPath   = flag.String("fetch", "", "Enable fetching the screen area to the given local file, updating it each second")
+	hevringImgPath = flag.String("hevring-preview", "", "Write the current task image to the given PNG file")
+	cpuprofile     = flag.String("cpuprofile", "", "Destination file for CPU Profile")
 )
 
 func main() {
@@ -83,7 +84,8 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 	}
 
 	if startClient {
-		rpc.ConnectHevring(hev, stop, wg)
+		hevring := rpc.ConnectHevring(hev, stop, wg)
+		hevring.PreviewPath = *hevringImgPath
 	}
 
 	if fetchImg {
