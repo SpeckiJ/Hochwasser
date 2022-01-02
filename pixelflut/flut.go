@@ -20,11 +20,10 @@ type FlutTask struct {
 type FlutTaskOpts struct {
 	Address     string
 	MaxConns    int
-	Offset      image.Point
 	Paused      bool
 	RGBSplit    bool // @cleanup: replace with `FX: []Effect`
-	RandOffset  bool
 	RenderOrder RenderOrder
+	Offset      RandOffsetter
 }
 
 // FlutTaskData contains the actual pixeldata to flut, separated because of size
@@ -36,8 +35,8 @@ func (t FlutTask) String() string {
 		img = t.Img.Bounds().Size().String()
 	}
 	return fmt.Sprintf(
-		"	%d conns @ %s\n	img %v	offset %v\n	order %s	rgbsplit %v	randoffset %v	paused %v",
-		t.MaxConns, t.Address, img, t.Offset, t.RenderOrder, t.RGBSplit, t.RandOffset, t.Paused,
+		"	%d conns @ %s\n	img %v	offset %v\n	order %s	rgbsplit %v	paused %v",
+		t.MaxConns, t.Address, img, t.Offset, t.RenderOrder, t.RGBSplit, t.Paused,
 	)
 }
 
@@ -84,10 +83,11 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 
 	var messages [][]byte
 	var maxOffsetX, maxOffsetY int
-	if t.RandOffset {
+	if t.Offset.Random {
 		maxX, maxY := CanvasSize(t.Address)
 		maxOffsetX = maxX - t.Img.Bounds().Canon().Dx()
 		maxOffsetY = maxY - t.Img.Bounds().Canon().Dy()
+		t.Offset.SetMaximumOffset(image.Pt(maxOffsetX, maxOffsetY))
 		messages = cmds.Chunk(1) // each connection should send the full img
 	} else {
 		messages = cmds.Chunk(t.MaxConns)
@@ -102,7 +102,7 @@ func Flut(t FlutTask, stop chan bool, wg *sync.WaitGroup) {
 
 		time.Sleep(50 * time.Millisecond) // avoid crashing the server
 
-		go bombAddress(msg, t.Address, maxOffsetX, maxOffsetY, stop, &bombWg)
+		go bombAddress(msg, t.Address, &t.Offset, stop, &bombWg)
 	}
 	bombWg.Wait()
 	if wg != nil {
@@ -114,6 +114,7 @@ func generateCommands(t FlutTask) (cmds commands) {
 	if t.RGBSplit {
 		white := color.NRGBA{0xff, 0xff, 0xff, 0xff}
 		imgmod := render.ImgColorFilter(t.Img, white, color.NRGBA{0xff, 0, 0, 0xff})
+		// FIXME: this offset is ignored with the latest changes, restore this behaviour.
 		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(-10, -10)))...)
 		imgmod = render.ImgColorFilter(t.Img, white, color.NRGBA{0, 0xff, 0, 0xff})
 		cmds = append(cmds, commandsFromImage(imgmod, t.RenderOrder, t.Offset.Add(image.Pt(10, 0)))...)

@@ -45,7 +45,7 @@ func FetchImage(bounds *image.Rectangle, address string, conns int, stop chan bo
 		}
 
 		go readPixels(img, conn, stop)
-		go bombConn(cmds[i], 0, 0, conn, stop)
+		go bombConn(cmds[i], &RandOffsetter{}, conn, stop)
 	}
 
 	return img

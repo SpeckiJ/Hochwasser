@@ -75,7 +75,7 @@ func taskFromFlags(stop chan bool, wg *sync.WaitGroup) {
 			FlutTaskOpts: pixelflut.FlutTaskOpts{
 				Address:     *address,
 				MaxConns:    *connections,
-				Offset:      image.Pt(*x, *y),
+				Offset:      pixelflut.RandOffsetter{Point: image.Pt(*x, *y)},
 				RenderOrder: pixelflut.NewOrder(*order),
 			},
 			Img: img,

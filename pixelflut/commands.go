@@ -39,7 +39,7 @@ func OffsetCmd(x, y int) []byte {
 }
 
 // CommandsFromImage converts an image to the respective pixelflut commands
-func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) (cmds commands) {
+func commandsFromImage(img *image.NRGBA, order RenderOrder, offset RandOffsetter) (cmds commands) {
 	b := img.Bounds()
 	cmds = make([][]byte, b.Size().X*b.Size().Y)
 	numCmds := 0
@@ -74,9 +74,9 @@ func commandsFromImage(img *image.NRGBA, order RenderOrder, offset image.Point) 
 
 			var cmd []byte
 			cmd = append(cmd, []byte("PX ")...)
-			cmd = strconv.AppendUint(cmd, uint64(x+offset.X), 10)
+			cmd = strconv.AppendUint(cmd, uint64(x), 10)
 			cmd = append(cmd, ' ')
-			cmd = strconv.AppendUint(cmd, uint64(y+offset.Y), 10)
+			cmd = strconv.AppendUint(cmd, uint64(y), 10)
 			cmd = append(cmd, ' ')
 			appendColor(&cmd, c)
 			cmd = append(cmd, '\n')

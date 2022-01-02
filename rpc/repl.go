@@ -67,15 +67,25 @@ func RunREPL(f Fluter) {
 				t.Paused = false
 
 			case "offset", "of":
-				if len(args) == 1 && args[0] == "rand" {
-					t.RandOffset = true
-					t.Offset = image.Point{}
+				if len(args) >= 1 && args[0][0] == 'r' {
+					t.Offset.Random = true
+					t.Offset.Mask = nil
+					if len(args) >= 2 {
+						fmt.Println(strings.Join(args[1:], " "))
+						mask, err := render.ReadImage(strings.Join(args[1:], " "))
+						if err != nil {
+							fmt.Printf("couldn't read mask image: %s\n", err)
+							continue
+						}
+						t.Offset.Mask = mask
+					}
 				} else if len(args) == 2 {
-					t.RandOffset = false
+					t.Offset.Random = false
+					t.Offset.Mask = nil
 					x, err := strconv.Atoi(args[0])
 					y, err2 := strconv.Atoi(args[1])
 					if err == nil && err2 == nil {
-						t.Offset = image.Pt(x, y)
+						t.Offset.Point = image.Pt(x, y)
 					}
 				}
 
