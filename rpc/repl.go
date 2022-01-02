@@ -31,6 +31,7 @@ func RunREPL(f Fluter) {
 	textSize := 10.0
 	var textCol image.Image = image.White
 	var bgCol image.Image = image.Transparent
+	var taskStore = make(map[string]pixelflut.FlutTask)
 
 	fmt.Print("[rán] REPL is active. ")
 	printHelp()
@@ -71,6 +72,22 @@ func RunREPL(f Fluter) {
 				if t.Paused {
 					f.stopTask()
 					printTask = false
+				}
+
+			case "store", "save":
+				printTask = false
+				if len(args) == 0 {
+					fmt.Println("must specify name")
+				} else {
+					taskStore[strings.Join(args, " ")] = t
+				}
+				continue
+
+			case "load", "l":
+				if len(args) == 0 {
+					fmt.Println("must specify name")
+				} else {
+					t = taskStore[strings.Join(args, " ")]
 				}
 
 			case "offset", "of":
@@ -195,10 +212,12 @@ func RunREPL(f Fluter) {
 
 func printHelp() {
 	fmt.Println(`available commands:
-	general
+	tasks
 		start                                start fluting
 		stop                                 pause fluting
 		status                               print current task
+		save <name>                          store current task
+		load <name>							 load previously stored task
 	content
 		i <filepath>                         set image
 		txt <scale> <color <bgcolor> <txt>   send text
