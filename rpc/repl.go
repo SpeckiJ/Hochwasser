@@ -86,7 +86,7 @@ func RunREPL(f Fluter) {
 					}
 				}
 
-			case "address", "a":
+			case "host", "address", "a":
 				if len(args) == 1 {
 					t.Address = args[0]
 				}
@@ -131,14 +131,24 @@ func RunREPL(f Fluter) {
 					}
 				}
 
+			// the commands below don't affect the task, so we don't need to apply it to clients -> continue
+
 			case "metrics":
 				f.toggleMetrics()
-				printTask = false
+				continue
+
+			case "status":
+				fmt.Println(t)
+				continue
+
+			case "help":
+				printHelp()
+				continue
 
 			default:
-				printTask = false
 				fmt.Print("[rán] unknown command. ")
 				printHelp()
+				continue
 			}
 
 			if printTask {
@@ -151,18 +161,18 @@ func RunREPL(f Fluter) {
 
 func printHelp() {
 	fmt.Println(`available commands:
-	start                                start fluting
-	stop                                 pause fluting
+		start                                start fluting
+		stop                                 pause fluting
 	c <n>                                set number of connections per client
 	a <host>:<port>                      set target server
 	offset <x> <y>                       set top-left offset
 	offset rand                          random offset for each draw
 	metrics                              toggle bandwidth reporting (may cost some performance)
 
-	i <filepath>                         set image
-	txt <scale> <color <bgcolor> <txt>   send text
-	txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
-	rgbsplit                             toggle RGB split effect
+		i <filepath>                         set image
+		txt <scale> <color <bgcolor> <txt>   send text
+		txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
+		rgbsplit                             toggle RGB split effect
 	o                                    set order (l,r,t,b,shuffle)`)
 }
 
