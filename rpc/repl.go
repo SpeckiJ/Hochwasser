@@ -161,19 +161,23 @@ func RunREPL(f Fluter) {
 
 func printHelp() {
 	fmt.Println(`available commands:
+	general
 		start                                start fluting
 		stop                                 pause fluting
-	c <n>                                set number of connections per client
-	a <host>:<port>                      set target server
-	offset <x> <y>                       set top-left offset
-	offset rand                          random offset for each draw
-	metrics                              toggle bandwidth reporting (may cost some performance)
-
+		status                               print current task
+	content
 		i <filepath>                         set image
 		txt <scale> <color <bgcolor> <txt>   send text
 		txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
+	draw modes
+		o                                    set order (l,r,t,b,random)
+		of <x> <y>                           set top-left offset
+		of rand                              random offset for each draw
 		rgbsplit                             toggle RGB split effect
-	o                                    set order (l,r,t,b,shuffle)`)
+	networking
+		c <n>                                set number of connections per client
+		a <host>:<port>                      set target server
+		metrics                              toggle bandwidth reporting (may cost some performance)`)
 }
 
 // try to parse as hex-encoded RGB color,
