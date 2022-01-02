@@ -66,6 +66,13 @@ func RunREPL(f Fluter) {
 			case "start":
 				t.Paused = false
 
+			case "toggle", ".":
+				t.Paused = !t.Paused
+				if t.Paused {
+					f.stopTask()
+					printTask = false
+				}
+
 			case "offset", "of":
 				if len(args) == 1 && args[0] == "rand" {
 					t.RandOffset = true
