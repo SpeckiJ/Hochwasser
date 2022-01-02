@@ -28,7 +28,7 @@ const textMode = "txt"
 // RunREPL starts reading os.Stdin for commands to apply to the given Fluter
 func RunREPL(f Fluter) {
 	mode := commandMode
-	textSize := 10
+	textSize := 10.0
 	var textCol image.Image = image.White
 	var bgCol image.Image = image.Transparent
 
@@ -109,7 +109,7 @@ func RunREPL(f Fluter) {
 			case "txt":
 				if len(args) > 0 {
 					if size, err := strconv.Atoi(args[0]); err == nil {
-						textSize = size
+						textSize = float64(size)
 					}
 				}
 				if len(args) > 1 {
@@ -137,6 +137,33 @@ func RunREPL(f Fluter) {
 						t.Img = img
 					}
 				}
+
+			case "scale", "s":
+				quality := true
+				var facX, facY float64
+				var err error
+				if len(args) >= 1 {
+					facX, err = strconv.ParseFloat(args[0], 64)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					facY = facX
+					if len(args) >= 2 {
+						facY, err = strconv.ParseFloat(args[1], 64)
+						if err != nil {
+							fmt.Println(err)
+							continue
+						}
+					}
+					if len(args) > 2 {
+						quality = false
+					}
+					t.Img = render.ScaleImage(t.Img, facX, facY, quality)
+				}
+
+			case "rotate", "r":
+				t.Img = render.RotateImage90(t.Img)
 
 			// the commands below don't affect the task, so we don't need to apply it to clients -> continue
 
@@ -176,6 +203,8 @@ func printHelp() {
 		i <filepath>                         set image
 		txt <scale> <color <bgcolor> <txt>   send text
 		txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
+		scale <facX> [<facY> [lofi]]         scale content
+		rotate                               rotate content 90°
 	draw modes
 		o                                    set order (l,r,t,b,random)
 		of <x> <y>                           set top-left offset
