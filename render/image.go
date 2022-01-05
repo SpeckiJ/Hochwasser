@@ -6,6 +6,7 @@ import (
 	_ "image/gif" // register gif, jpeg, png format handlers
 	_ "image/jpeg"
 	"image/png"
+	"math"
 	"os"
 
 	"golang.org/x/image/draw"
@@ -63,10 +64,28 @@ func ImgColorFilter(img *image.NRGBA, from, to color.NRGBA) *image.NRGBA {
 	return r
 }
 
-func ScaleImage(img image.Image, factor int) (scaled *image.NRGBA) {
+func ScaleImage(img image.Image, factorX, factorY float64, highQuality bool) (scaled *image.NRGBA) {
 	b := img.Bounds()
-	scaledBounds := image.Rect(0, 0, b.Max.X*factor, b.Max.Y*factor)
+	newX := int(math.Ceil(factorX * float64(b.Max.X)))
+	newY := int(math.Ceil(factorY * float64(b.Max.Y)))
+	scaledBounds := image.Rect(0, 0, newX, newY)
 	scaledImg := image.NewNRGBA(scaledBounds)
-	draw.NearestNeighbor.Scale(scaledImg, scaledBounds, img, b, draw.Src, nil)
+	scaler := draw.NearestNeighbor
+	if highQuality {
+		scaler = draw.CatmullRom
+	}
+	scaler.Scale(scaledImg, scaledBounds, img, b, draw.Src, nil)
 	return scaledImg
+}
+
+func RotateImage90(img *image.NRGBA) (rotated *image.NRGBA) {
+	b := img.Bounds()
+	rotated = image.NewNRGBA(image.Rect(0, 0, b.Max.Y, b.Max.X))
+	for x := b.Min.X; x < b.Max.X; x++ {
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			col := img.NRGBAAt(x, y)
+			rotated.SetNRGBA(b.Max.Y-y, x, col)
+		}
+	}
+	return
 }

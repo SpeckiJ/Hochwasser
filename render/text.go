@@ -16,7 +16,7 @@ func pt(p fixed.Point26_6) image.Point {
 	}
 }
 
-func RenderText(text string, scale int, texture, bgTex image.Image) *image.NRGBA {
+func RenderText(text string, scale float64, texture, bgTex image.Image) *image.NRGBA {
 	face := basicfont.Face7x13
 	stringBounds, _ := font.BoundString(face, text)
 
@@ -38,5 +38,5 @@ func RenderText(text string, scale int, texture, bgTex image.Image) *image.NRGBA
 	img.Rect = img.Bounds().Sub(img.Bounds().Min)
 
 	// scale up, as this font is quite small
-	return ScaleImage(img, scale)
+	return ScaleImage(img, scale, scale, false)
 }

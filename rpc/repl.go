@@ -28,9 +28,10 @@ const textMode = "txt"
 // RunREPL starts reading os.Stdin for commands to apply to the given Fluter
 func RunREPL(f Fluter) {
 	mode := commandMode
-	textSize := 10
+	textSize := 10.0
 	var textCol image.Image = image.White
 	var bgCol image.Image = image.Transparent
+	var taskStore = make(map[string]pixelflut.FlutTask)
 
 	fmt.Print("[rán] REPL is active. ")
 	printHelp()
@@ -66,6 +67,29 @@ func RunREPL(f Fluter) {
 			case "start":
 				t.Paused = false
 
+			case "toggle", ".":
+				t.Paused = !t.Paused
+				if t.Paused {
+					f.stopTask()
+					printTask = false
+				}
+
+			case "store", "save":
+				printTask = false
+				if len(args) == 0 {
+					fmt.Println("must specify name")
+				} else {
+					taskStore[strings.Join(args, " ")] = t
+				}
+				continue
+
+			case "load", "l":
+				if len(args) == 0 {
+					fmt.Println("must specify name")
+				} else {
+					t = taskStore[strings.Join(args, " ")]
+				}
+
 			case "offset", "of":
 				if len(args) == 1 && args[0] == "rand" {
 					t.RandOffset = true
@@ -86,7 +110,7 @@ func RunREPL(f Fluter) {
 					}
 				}
 
-			case "address", "a":
+			case "host", "address", "a":
 				if len(args) == 1 {
 					t.Address = args[0]
 				}
@@ -102,7 +126,7 @@ func RunREPL(f Fluter) {
 			case "txt":
 				if len(args) > 0 {
 					if size, err := strconv.Atoi(args[0]); err == nil {
-						textSize = size
+						textSize = float64(size)
 					}
 				}
 				if len(args) > 1 {
@@ -131,14 +155,51 @@ func RunREPL(f Fluter) {
 					}
 				}
 
+			case "scale", "s":
+				quality := true
+				var facX, facY float64
+				var err error
+				if len(args) >= 1 {
+					facX, err = strconv.ParseFloat(args[0], 64)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					facY = facX
+					if len(args) >= 2 {
+						facY, err = strconv.ParseFloat(args[1], 64)
+						if err != nil {
+							fmt.Println(err)
+							continue
+						}
+					}
+					if len(args) > 2 {
+						quality = false
+					}
+					t.Img = render.ScaleImage(t.Img, facX, facY, quality)
+				}
+
+			case "rotate", "r":
+				t.Img = render.RotateImage90(t.Img)
+
+			// the commands below don't affect the task, so we don't need to apply it to clients -> continue
+
 			case "metrics":
 				f.toggleMetrics()
-				printTask = false
+				continue
+
+			case "status":
+				fmt.Println(t)
+				continue
+
+			case "help":
+				printHelp()
+				continue
 
 			default:
-				printTask = false
 				fmt.Print("[rán] unknown command. ")
 				printHelp()
+				continue
 			}
 
 			if printTask {
@@ -151,19 +212,27 @@ func RunREPL(f Fluter) {
 
 func printHelp() {
 	fmt.Println(`available commands:
-	start                                start fluting
-	stop                                 pause fluting
-	c <n>                                set number of connections per client
-	a <host>:<port>                      set target server
-	offset <x> <y>                       set top-left offset
-	offset rand                          random offset for each draw
-	metrics                              toggle bandwidth reporting (may cost some performance)
-
-	i <filepath>                         set image
-	txt <scale> <color <bgcolor> <txt>   send text
-	txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
-	rgbsplit                             toggle RGB split effect
-	o                                    set order (l,r,t,b,shuffle)`)
+	tasks
+		start                                start fluting
+		stop                                 pause fluting
+		status                               print current task
+		save <name>                          store current task
+		load <name>							 load previously stored task
+	content
+		i <filepath>                         set image
+		txt <scale> <color <bgcolor> <txt>   send text
+		txt [<scale> [<color> [<bgcolor>]]   enter interactive text mode
+		scale <facX> [<facY> [lofi]]         scale content
+		rotate                               rotate content 90°
+	draw modes
+		o                                    set order (l,r,t,b,random)
+		of <x> <y>                           set top-left offset
+		of rand                              random offset for each draw
+		rgbsplit                             toggle RGB split effect
+	networking
+		c <n>                                set number of connections per client
+		a <host>:<port>                      set target server
+		metrics                              toggle bandwidth reporting (may cost some performance)`)
 }
 
 // try to parse as hex-encoded RGB color,
