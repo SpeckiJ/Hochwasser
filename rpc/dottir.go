@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"net"
 	"net/rpc"
@@ -9,9 +10,10 @@ import (
 	"time"
 
 	"github.com/SpeckiJ/Hochwasser/pixelflut"
+	"github.com/SpeckiJ/Hochwasser/render"
 )
 
-func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) {
+func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) *Hevring {
 	h := new(Hevring)
 	rpc.Register(h)
 
@@ -23,6 +25,18 @@ func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) {
 	go rpc.ServeConn(conn)
 	fmt.Printf("[hevring] awaiting task from Rán\n")
 
+	// print performance
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if pixelflut.PerformanceReporter.Enabled {
+				fmt.Println(pixelflut.PerformanceReporter)
+			}
+		}
+	}()
+
+	// add listener to stop the task, if this hevring should stop
+	// (either because Rán told us so, or we received an interrupt)
 	h.quit = stop
 	h.wg = wg
 	h.wg.Add(1)
@@ -35,13 +49,16 @@ func ConnectHevring(ránAddress string, stop chan bool, wg *sync.WaitGroup) {
 		}
 		h.wg.Done()
 	}()
+
+	return h
 }
 
 type Hevring struct {
-	task     pixelflut.FlutTask
-	taskQuit chan bool
-	quit     chan bool
-	wg       *sync.WaitGroup
+	PreviewPath string
+	task        pixelflut.FlutTask
+	taskQuit    chan bool // if closed, task is stopped.
+	quit        chan bool // if closed, kills this hevring
+	wg          *sync.WaitGroup
 }
 
 type FlutAck struct{ Ok bool }
@@ -63,6 +80,8 @@ func (h *Hevring) Flut(task pixelflut.FlutTask, reply *FlutAck) error {
 	h.taskQuit = make(chan bool)
 
 	go pixelflut.Flut(task, h.taskQuit, nil)
+	go h.savePreview(task.Img)
+
 	reply.Ok = true
 	return nil
 }
@@ -98,4 +117,14 @@ func (h *Hevring) Die(x int, reply *FlutAck) error {
 	}()
 	reply.Ok = true
 	return nil
+}
+
+func (h Hevring) savePreview(img image.Image) {
+	if h.PreviewPath != "" && img != nil {
+		err := render.WriteImage(h.PreviewPath, img)
+		if err != nil {
+			fmt.Printf("[hevring] unable to write preview: %s\n", err)
+		}
+	}
+
 }
